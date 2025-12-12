@@ -1,0 +1,66 @@
+name: Auto Bump all packages
+on:
+  workflow_dispatch:
+    inputs:
+      bumpNumber:
+        description: "Increase for each bump in the same day"
+        required: false
+        type: number
+  repository_dispatch:
+    types: [auto-bump-trigger]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1440
+    steps:
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            sandbox-fallback = false
+          install_options: --daemon
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          set -e
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Update all packages
+        id: build
+        run: |
+          nix develop --impure ./maintenance#updater -c 'chaotic-nyx-bumper'
+        env:
+          NYX_SOURCE: ${{ github.workspace }}
+          GH_TOKEN: ${{ github.token }}
+          NYX_BUMPN: ${{ inputs.bumpNumber }}
+          NYX_BUMP_REVERT: 0
+
+      - name: Add labels to the created PR
+        if: success()
+        run: |
+          bump_number=${{ inputs.bumpNumber }}
+          current_date=$(date '+%Y%m%d')
+          branch_name="bump/$current_date-$bump_number"
+
+          PR_NUMBER=$(gh pr list --state open --head "$branch_name" --json number --jq '.[0].number')
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr edit $PR_NUMBER \
+              --add-label "auto_bump" \
+              --add-label "github_actions"
+          else
+            echo "No matching PR found with branch $branch_name"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
