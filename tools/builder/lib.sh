@@ -212,7 +212,10 @@ function no-fail() {
 
 # Push logic
 function deploy() {
-  if [ -z "${CACHIX_AUTH_TOKEN:-}" ] && [ -z "${CACHIX_SIGNING_KEY:-}" ]; then
+  if [ "${PROJECT_CACHIX_PUSH:-true}" = "false" ]; then
+    echo "Skipping cachix push as PROJECT_CACHIX_PUSH is set to false."
+    return 0
+  elif [ -z "${CACHIX_AUTH_TOKEN:-}" ] && [ -z "${CACHIX_SIGNING_KEY:-}" ]; then
     echo_error "No key for cachix -- failing to deploy."
     exit 23
   elif [ -n "${PROJECT_PUSH_ANYWAY:-}" ] || [ -s push.txt ]; then
