@@ -40,7 +40,7 @@ jobs:
       - name: Update all packages
         id: build
         run: |
-          nix develop --impure ./maintenance#updater -c 'chaotic-nyx-bumper'
+          nix develop .#updater -c 'project-bumper'
         env:
           NYX_SOURCE: ${{ github.workspace }}
           GH_TOKEN: ${{ github.token }}
