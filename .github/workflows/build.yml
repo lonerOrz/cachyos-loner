@@ -40,4 +40,6 @@ jobs:
       - name: Build all packages
         id: build
         run: |
-          nix develop .#default -c 'project-build'
+          nix develop -c project-build
+        env:
+          PROJECT_CACHIX_PUSH: false # 禁用缓存上传
