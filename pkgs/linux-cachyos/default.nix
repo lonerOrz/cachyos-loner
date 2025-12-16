@@ -161,6 +161,7 @@ in
     patches = [ ];
     passthru = prevAttrs.passthru // {
       kernelModuleAttribute = "zfs_cachyos";
+      updateScript = null; # ignore nixpkgs update script
     };
     postPatch = builtins.replaceStrings [ "grep --quiet '^Linux-M" ] [ "# " ] prevAttrs.postPatch;
   });

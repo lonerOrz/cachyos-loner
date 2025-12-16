@@ -69,5 +69,5 @@ in
   linuxPackages_cachyos-rc = cachyosPackages.cachyos-rc;
   linuxPackages_cachyos-lts = cachyosPackages.cachyos-lts;
 
-  # zfs_cachyos = cachyosPackages.zfs;
+  zfs_cachyos = cachyosPackages.zfs;
 }
