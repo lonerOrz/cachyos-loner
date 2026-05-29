@@ -27,7 +27,6 @@
             lib = final.lib;
           in
           rec {
-            # Don't waste user's time.
             markBroken =
               drv:
               drv.overrideAttrs (prevAttrs: {
@@ -36,22 +35,18 @@
                 };
               });
 
-            # Helps when overriding both inputs and outputs attrs.
             multiOverride = prev: newInputs: (prev.override newInputs).overrideAttrs;
 
-            # Single-value optional attr
             optionalAttr =
               key: pred: value:
               if pred then { "${key}" = value; } else { };
 
-            # Helps when overriding.
             overrideDescription = descriptionMap: prevAttrs: {
               meta = (rejectAttr "longDescription" prevAttrs.meta) // {
                 description = descriptionMap prevAttrs.meta.description;
               };
             };
 
-            # Helps replacing all the dependencies in a derivation.
             overrideFull =
               newScope: prev:
               let
@@ -61,16 +56,12 @@
               in
               prev.override values;
 
-            # Helps removing attrs.
             rejectAttr = x: lib.attrsets.filterAttrs (k: _v: k != x);
 
-            # Helps when dropping patches.
             removeByBaseName = baseName: builtins.filter (x: builtins.baseNameOf x != baseName);
 
-            # Helps when dropping patches.
             removeByURL = url: builtins.filter (x: !(lib.attrsets.isDerivation x) || (x.url or null) != url);
 
-            # Helps when dropping flags.
             removeByPrefix =
               prefix:
               let
@@ -78,7 +69,6 @@
               in
               builtins.filter (s: builtins.substring 0 prefixLen s != prefix);
 
-            # Helps when batch-overriding.
             setAttrsPlatforms =
               platforms:
               builtins.mapAttrs (
@@ -95,30 +85,16 @@
                   v
               );
 
-            # For revs
             shorter = builtins.substring 0 7;
 
-            # We don't want builders playing around here.
             recurseForDerivations = false;
           };
         inherit (projectUtils) multiOverride overrideDescription;
 
-        # Helps when calling .nix that will override packages.
-        callOverride =
-          path: attrs:
-          import path (
-            {
-              inherit
-                final
-                projectUtils
-                prev
-                ;
-              flakes = inputs;
-            }
-            // attrs
-          );
-        # Too much variations
-        cachyosPackages = callOverride ./pkgs/linux-cachyos { };
+        cachyosPackages = import ./pkgs/linux-cachyos {
+          inherit final projectUtils prev;
+          flakes = inputs;
+        };
 
         # Required for kernel packages
         inherit (final.stdenv) isLinux isx86_64;
