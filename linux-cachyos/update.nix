@@ -16,8 +16,7 @@
 }:
 
 let
-  inherit (updateConfig) versionsFile suffix;
-  flavors = updateConfig.flavors or [ updateConfig.flavor ];
+  inherit (updateConfig) versionsFile suffix flavors;
   flavorsStr = lib.concatStringsSep " " flavors;
 
   path = lib.makeBinPath [

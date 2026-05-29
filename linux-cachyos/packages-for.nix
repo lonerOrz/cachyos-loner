@@ -89,6 +89,18 @@ let
     kernelPackages = packagesWithRightPlatforms;
   };
 
+  kernelWithUpdateScript = kernel.overrideAttrs (prevAttrs: {
+    passthru = prevAttrs.passthru // {
+      updateScript =
+        if updateConfig != null then
+          inputs.final.callPackage ./update.nix { inherit updateConfig; }
+        else
+          inputs.final.writeShellScriptBin "update-cachyos" ''
+            echo "${taste}: No independent updateScript. Please run the updateScript for linux_cachyos-gcc instead."
+          '';
+    };
+  });
+
   commonMakeFlags = import "${inputs.flakes.nixpkgs}/pkgs/os-specific/linux/kernel/common-flags.nix" {
     inherit
       lib
@@ -139,7 +151,7 @@ let
     inherit cachyOverride;
   };
 
-  basePackages = linuxPackagesFor kernel;
+  basePackages = linuxPackagesFor kernelWithUpdateScript;
   packagesWithOurs = basePackages.extend addOurs;
   packagesWithExtend =
     if packagesExtend == null then

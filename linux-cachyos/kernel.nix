@@ -7,7 +7,6 @@
   lib,
   linuxManualConfig,
   stdenv,
-  writeShellScriptBin,
   # Weird injections
   kernelPatches ? [ ],
   features ? null,
@@ -20,13 +19,6 @@
 let
   version = cachyConfig.versions.linux.version;
   utils = import ../utils.nix { inherit lib; };
-  updaterScript =
-    if cachyConfig.updateConfig != null then
-      callPackage ./update.nix { updateConfig = cachyConfig.updateConfig; }
-    else
-      writeShellScriptBin "update-cachyos" ''
-        echo "${cachyConfig.taste}: update shared with linux_cachyos-gcc; run its updateScript instead."
-      '';
 in
 (linuxManualConfig {
   inherit
@@ -63,7 +55,6 @@ in
       prevAttrs.passthru
       // {
         inherit cachyConfig kconfigToNix;
-        updateScript = updaterScript;
         features = {
           efiBootStub = true;
           ia32Emulation = true;

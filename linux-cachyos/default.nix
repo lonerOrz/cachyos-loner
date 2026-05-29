@@ -8,6 +8,7 @@ let
 
   versions = {
     main = builtins.fromJSON (builtins.readFile ./versions.json);
+    server = builtins.fromJSON (builtins.readFile ./versions-server.json);
     lts = builtins.fromJSON (builtins.readFile ./versions-lts.json);
     rc = builtins.fromJSON (builtins.readFile ./versions-rc.json);
     hardened = builtins.fromJSON (builtins.readFile ./versions-hardened.json);
@@ -102,6 +103,7 @@ in
 
   cachyos-lto-znver4 = mkCachyKernel (ltoBase // {
     configPath = ./config-nix/cachyos-znver4.x86_64-linux.nix;
+    updateConfig = null;
   });
 
   cachyos-sched-ext = throw "\"sched-ext\" patches were merged with \"cachyos\" flavor.";
@@ -119,10 +121,11 @@ in
     withNTSync = false;
     withHDR = false;
     description = "Linux EEVDF scheduler Kernel by CachyOS targeted for Servers";
+    versions = versions.server;
     updateConfig = {
-      versionsFile = "versions.json";
-      suffix = "";
-      flavor = "-server";
+      versionsFile = "versions-server.json";
+      suffix = "-server";
+      flavors = ["-server"];
     };
   };
 
@@ -134,7 +137,7 @@ in
     updateConfig = {
       versionsFile = "versions-lts.json";
       suffix = "-lts";
-      flavor = "-lts";
+      flavors = ["-lts"];
     };
 
     packagesExtend =
@@ -150,7 +153,7 @@ in
     updateConfig = {
       versionsFile = "versions-rc.json";
       suffix = "-rc";
-      flavor = "-rc";
+      flavors = ["-rc"];
     };
 
     packagesExtend =
@@ -167,7 +170,7 @@ in
     updateConfig = {
       versionsFile = "versions-hardened.json";
       suffix = "-hardened";
-      flavor = "-hardened";
+      flavors = ["-hardened"];
     };
 
     withNTSync = false;
