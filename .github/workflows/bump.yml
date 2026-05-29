@@ -2,19 +2,50 @@ name: Bump
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: "0 16 * * *"
+
 jobs:
   bump:
     strategy:
       matrix:
         variant: [gcc, server, hardened, rc, lts]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - uses: cachix/install-nix-action@v30
-      - run: git config user.name "cachyos-loner[bot]"
-      - run: git config user.email "cachyos-loner[bot]@users.noreply.github.com"
-      - run: nix run ".#linux_cachyos-${{ matrix.variant }}.passthru.updateScript" --impure
-      - run: nix eval ".#linux_cachyos-${{ matrix.variant }}.version" --impure -L
+
+      - name: Configure Git
+        run: |
+          git config user.name "cachyos-loner[bot]"
+          git config user.email "cachyos-loner[bot]@users.noreply.github.com"
+
+      - name: Run Update and Create/Update PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VARIANT="${{ matrix.variant }}"
+          BRANCH_NAME="bump-${VARIANT}"
+          BASE_SHA=$(git rev-parse HEAD)
+
+          git checkout -B "$BRANCH_NAME"
+          nix run ".#linux_cachyos-${VARIANT}.passthru.updateScript" --impure
+
+          if [ "$(git rev-parse HEAD)" != "$BASE_SHA" ]; then
+            COMMIT_TITLE=$(git log -1 --pretty=%s)
+            git push origin "$BRANCH_NAME" --force
+
+            PR_NUMBER=$(gh pr list --head "$BRANCH_NAME" --state open --json number --jq '.[0].number // empty')
+
+            if [ -z "$PR_NUMBER" ]; then
+              gh pr create --fill --base main --head "$BRANCH_NAME"
+            else
+              gh pr comment "$PR_NUMBER" --body "This pull request has been updated with new changes: \`${COMMIT_TITLE}\`."
+            fi
+          fi
