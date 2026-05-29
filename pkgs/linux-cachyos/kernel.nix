@@ -64,7 +64,6 @@ in
         isZen = true;
         isHardened = cachyConfig.cpuSched == "hardened";
         isLibre = false;
-        updateScript = null;
         tests = (prevAttrs.passthru.tests or { }) // {
           plymouth = import ./test.nix {
             inherit kernelPackages;
@@ -72,10 +71,5 @@ in
             rootFlake = flakes.self;
           } final;
         };
-      }
-      // projectUtils.optionalAttr "updateScript" (cachyConfig.withUpdateScript != null) (
-        callPackage ./update.nix {
-          inherit (cachyConfig) withUpdateScript;
-        }
-      );
+      };
   })

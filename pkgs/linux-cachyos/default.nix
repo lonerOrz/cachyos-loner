@@ -86,8 +86,6 @@ let
   gccKernel = mkCachyKernel {
     taste = "linux-cachyos";
     configPath = ./config-nix/cachyos-gcc.x86_64-linux.nix;
-    # since all flavors use the same versions.json, we just need the updateScript in one of them
-    withUpdateScript = "stable";
   };
 in
 {
@@ -105,7 +103,6 @@ in
     configPath = ./config-nix/cachyos-lts.x86_64-linux.nix;
 
     versions = ltsVersions;
-    withUpdateScript = "lts";
 
     # Prevent building kernel modules for LTS kernel
     packagesExtend =
@@ -118,7 +115,6 @@ in
     configPath = ./config-nix/cachyos-rc.x86_64-linux.nix;
 
     versions = rcVersions;
-    withUpdateScript = "rc";
 
     # Prevent building kernel modules for rc kernel
     packagesExtend =
@@ -150,7 +146,6 @@ in
     cpuSched = "hardened";
 
     versions = hardenedVersions;
-    withUpdateScript = "hardened";
 
     withNTSync = false;
     withHDR = false;

@@ -27,14 +27,6 @@
             lib = final.lib;
           in
           rec {
-            # Helps when batch-overriding.
-            dropAttrsUpdateScript = builtins.mapAttrs (
-              _k: v: if (v.passthru.updateScript or null) != null then v.overrideAttrs dropUpdateScript else v
-            );
-
-            # Helps when overriding.
-            dropUpdateScript = prevAttrs: { passthru = removeAttrs prevAttrs.passthru [ "updateScript" ]; };
-
             # Don't waste user's time.
             markBroken =
               drv:

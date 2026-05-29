@@ -11,7 +11,6 @@
   lib,
   buildPackages,
   ogKernelConfigfile ? linuxPackages.kernel.passthru.configfile,
-  withUpdateScript ? null,
   packagesExtend ? null,
   cachyOverride,
   extraMakeFlags ? [ ],
@@ -52,7 +51,6 @@ let
       withHDR
       withoutDebug
       description
-      withUpdateScript
       ;
   };
 
@@ -144,8 +142,7 @@ let
     "system76-scheduler"
     "perf"
   ];
-  packagesWithoutUpdateScript = projectUtils.dropAttrsUpdateScript packagesWithRemovals;
-  packagesWithRightPlatforms = projectUtils.setAttrsPlatforms supportedPlatforms packagesWithoutUpdateScript;
+  packagesWithRightPlatforms = projectUtils.setAttrsPlatforms supportedPlatforms packagesWithRemovals;
 
   supportedPlatforms = [
     (with lib.systems.inspect.patterns; isx86_64 // isLinux)
@@ -159,5 +156,4 @@ packagesWithRightPlatforms
 // {
   _description = "Kernel and modules for ${description}";
   _version = "${versions.linux.version}${versionSuffix}";
-  inherit (basePackages) kernel; # This one still has the updateScript
 }
