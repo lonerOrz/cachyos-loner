@@ -16,5 +16,11 @@ in
       xorg
       ;
     cups = projectUtils.markBroken prevLLVM.cups;
+    doctest = prevLLVM.doctest.overrideAttrs (prevAttrs: {
+      postPatch = (prevAttrs.postPatch or "") + ''
+        substituteInPlace scripts/cmake/common.cmake \
+          --replace-fail '-Wall' '-Wall -Wno-error=thread-safety-negative'
+      '';
+    });
   }
 )
