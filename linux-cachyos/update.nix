@@ -20,7 +20,17 @@ let
   flavorsStr = lib.concatStringsSep " " flavors;
 
   path = lib.makeBinPath [
-    coreutils curl findutils gnugrep gnused gawk jq moreutils git nix-prefetch-git nix
+    coreutils
+    curl
+    findutils
+    gnugrep
+    gnused
+    gawk
+    jq
+    moreutils
+    git
+    nix-prefetch-git
+    nix
   ];
 in
 
@@ -78,7 +88,7 @@ writeShellScriptBin "update-cachyos" ''
   srcTag=$(printf "%s\n" "$pkgbuild" | parse_srctag)
   srcUrl="https://github.com/CachyOS/linux/releases/download/''${srcTag}/''${srcTag}.tar.gz"
 
-  if [[ "$localVer" == "$latestVer" && "$localTagrel" == "$latestTagrel" ]]; then
+  if [[ "''${FORCE:-0}" != "1" && "$localVer" == "$latestVer" && "$localTagrel" == "$latestTagrel" ]]; then
     exit 0
   fi
 
