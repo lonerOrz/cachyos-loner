@@ -1,0 +1,44 @@
+name: 构建并推送到 OCI Nix 缓存
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: 构建系统/软件包
+        run: |
+          nix build nixpkgs#hello --no-link --print-out-paths > ./paths.txt
+
+      - name: 签名并推送缓存至 OCI
+        env:
+          ORANC_USERNAME: ${{ github.actor }}
+          ORANC_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          ORANC_SIGNING_KEY: ${{ secrets.ORANC_SIGNING_KEY }}
+        run: |
+          REGISTRY="ghcr.io"
+          REPOSITORY="${{ github.repository }}"
+
+          nix run github:linyinfeng/oranc#oranc -- \
+            push \
+            --registry "$REGISTRY" \
+            --repository "$REPOSITORY" \
+            initialize || true
+
+          cat ./paths.txt | nix run github:linyinfeng/oranc#oranc -- \
+            push \
+            --registry "$REGISTRY" \
+            --repository "$REPOSITORY"
