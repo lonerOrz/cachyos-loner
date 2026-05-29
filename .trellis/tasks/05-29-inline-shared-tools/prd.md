@@ -27,14 +27,17 @@
   - `tools/bumper` → 内联表达式 + `lib.sh` 的 bash 函数内联到 script
   - `tools/builder` → 内联表达式 + `lib.sh` 的 bash 函数内联到 script
 - 完成后删除 `shared/` 和 `tools/` 目录
+- **`overlays/default.nix`** → 内联到 `flake.nix` 的 let 中，删除 `overlays/` 目录
+- **`dev-shells.nix`** → 内联到 `flake.nix` 的 let 中，删除 `dev-shells.nix`
+- **`formatter.nix`** → 内联到 `flake.nix` 的 outputs 中，删除 `formatter.nix`
+- **`garnix.yaml`** → 直接删除
 
 ## Acceptance Criteria
 
-- [ ] `flake.nix` 不再 import `./shared/`
+- [ ] `flake.nix` 不再 import `./shared/`、`./dev-shells.nix`、`./formatter.nix`、`./overlays`
 - [ ] `overlays/default.nix` 不再 import `../shared/`
 - [ ] `dev-shells.nix` 不再 `callPackage` shared/ 或 tools/
-- [ ] `shared/` 目录被删除
-- [ ] `tools/` 目录被删除
+- [ ] `shared/` `tools/` `overlays/` `dev-shells.nix` `formatter.nix` `garnix.yaml` 全部删除
 - [ ] `nix flake check` 通过
 
 ## Out of Scope
