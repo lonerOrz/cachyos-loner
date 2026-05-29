@@ -12,7 +12,7 @@
   nix,
   nix-prefetch-git,
   moreutils,
-  taste,
+  withUpdateScript,
 }:
 
 let
@@ -39,15 +39,7 @@ let
     };
   };
 
-  tasteToVariant = {
-    "linux-cachyos" = "stable";
-    "linux-cachyos-lts" = "lts";
-    "linux-cachyos-rc" = "rc";
-    "linux-cachyos-hardened" = "hardened";
-  };
-
-  withUpdateScript = tasteToVariant.${taste} or (throw "Unsupported taste: ${taste}");
-  major = variants.${withUpdateScript};
+  major = variants.${withUpdateScript} or (throw "Unsupported withUpdateScript: ${withUpdateScript}");
 
   path = lib.makeBinPath [
     coreutils curl findutils gnugrep gnused gawk jq moreutils git nix-prefetch-git nix
