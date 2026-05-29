@@ -89,7 +89,7 @@ let
     updateConfig = {
       versionsFile = "versions.json";
       suffix = "";
-      flavor = "-gcc";
+      flavors = ["-gcc" "-lto"];
     };
   };
 in
@@ -97,11 +97,7 @@ in
   cachyos-gcc = gccPackages;
 
   cachyos-lto = mkCachyKernel (ltoBase // {
-    updateConfig = {
-      versionsFile = "versions.json";
-      suffix = "";
-      flavor = "-lto";
-    };
+    updateConfig = null;
   });
 
   cachyos-lto-znver4 = mkCachyKernel (ltoBase // {

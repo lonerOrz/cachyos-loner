@@ -7,7 +7,7 @@ jobs:
   bump:
     strategy:
       matrix:
-        variant: [gcc, lto, server, hardened, rc, lts]
+        variant: [gcc, server, hardened, rc, lts]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

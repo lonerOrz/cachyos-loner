@@ -7,6 +7,7 @@
   lib,
   linuxManualConfig,
   stdenv,
+  writeShellScriptBin,
   # Weird injections
   kernelPatches ? [ ],
   features ? null,
@@ -19,12 +20,13 @@
 let
   version = cachyConfig.versions.linux.version;
   utils = import ../utils.nix { inherit lib; };
-  optionalAttr = key: pred: value: if pred then { "${key}" = value; } else { };
   updaterScript =
     if cachyConfig.updateConfig != null then
       callPackage ./update.nix { updateConfig = cachyConfig.updateConfig; }
     else
-      null;
+      writeShellScriptBin "update-cachyos" ''
+        echo "${cachyConfig.taste}: update shared with linux_cachyos-gcc; run its updateScript instead."
+      '';
 in
 (linuxManualConfig {
   inherit
@@ -61,6 +63,7 @@ in
       prevAttrs.passthru
       // {
         inherit cachyConfig kconfigToNix;
+        updateScript = updaterScript;
         features = {
           efiBootStub = true;
           ia32Emulation = true;
@@ -70,7 +73,6 @@ in
         isZen = true;
         isHardened = cachyConfig.cpuSched == "hardened";
         isLibre = false;
-        updateScript = null;
         tests = (prevAttrs.passthru.tests or { }) // {
           plymouth = import ./test.nix {
             inherit kernelPackages;
@@ -78,6 +80,5 @@ in
             rootFlake = flakes.self;
           } final;
         };
-      }
-      // optionalAttr "updateScript" (cachyConfig.updateConfig != null) updaterScript;
+      };
   })

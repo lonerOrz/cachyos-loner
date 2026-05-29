@@ -16,7 +16,9 @@
 }:
 
 let
-  inherit (updateConfig) versionsFile suffix flavor;
+  inherit (updateConfig) versionsFile suffix;
+  flavors = updateConfig.flavors or [ updateConfig.flavor ];
+  flavorsStr = lib.concatStringsSep " " flavors;
 
   path = lib.makeBinPath [
     coreutils curl findutils gnugrep gnused gawk jq moreutils git nix-prefetch-git nix
@@ -125,13 +127,15 @@ writeShellScriptBin "update-cachyos" ''
       .zfs.hash = $zfsHash
     ' "$srcJson" | sponge "$srcJson"
 
-  out=$(nix build \
-    ".#packages.x86_64-linux.linux_cachyos${flavor}.kconfigToNix" \
-    --no-link --print-out-paths 2>/dev/null) || true
+  for flv in ${flavorsStr}; do
+    out=$(nix build \
+      ".#packages.x86_64-linux.linux_cachyos''${flv}.kconfigToNix" \
+      --no-link --print-out-paths 2>/dev/null) || true
 
-  if [ -n "$out" ] && [ -f "$out" ]; then
-    cat "$out" > linux-cachyos/config-nix/cachyos${flavor}.x86_64-linux.nix
-  fi
+    if [ -n "$out" ] && [ -f "$out" ]; then
+      cat "$out" > linux-cachyos/config-nix/cachyos''${flv}.x86_64-linux.nix
+    fi
+  done
 
   git add linux-cachyos
   git commit -m \
