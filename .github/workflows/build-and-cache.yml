@@ -19,6 +19,10 @@ jobs:
       - name: 安装 Nix
         uses: DeterminateSystems/nix-installer-action@main
 
+      - name: 安装 oranc 工具
+        run: |
+          sudo ln -s $(nix build github:linyinfeng/oranc#oranc --print-out-paths --no-link)/bin/oranc /usr/local/bin/oranc
+
       - name: 构建系统/软件包
         run: |
           nix build nixpkgs#hello --no-link --print-out-paths > ./paths.txt
@@ -32,13 +36,13 @@ jobs:
           REGISTRY="ghcr.io"
           REPOSITORY="${{ github.repository }}"
 
-          sudo -E nix run github:linyinfeng/oranc#oranc -- \
+          sudo -E oranc \
             push \
             --registry "$REGISTRY" \
             --repository "$REPOSITORY" \
             initialize || true
 
-          cat ./paths.txt | sudo -E nix run github:linyinfeng/oranc#oranc -- \
+          cat ./paths.txt | sudo -E oranc \
             push \
             --registry "$REGISTRY" \
             --repository "$REPOSITORY"
