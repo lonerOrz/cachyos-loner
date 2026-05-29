@@ -1,4 +1,4 @@
-{ lib }:
+{ lib, nixpkgs, defaultOverlay }:
 
 rec {
   markBroken =
@@ -39,4 +39,39 @@ rec {
   shorter = builtins.substring 0 7;
 
   recurseForDerivations = false;
+
+  applyOverlay =
+    {
+      replace ? false,
+      merge ? false,
+      overlay ? defaultOverlay,
+      projectPkgs ? null,
+      onlyDerivations ? false,
+      pkgs,
+    }:
+    let
+      fullPackages = if replace then pkgs // ourPackages else ourPackages // pkgs;
+      overlayFinal = fullPackages // {
+        callPackage = pkgs.newScope overlayFinal;
+      };
+      ourPackages = if projectPkgs != null then projectPkgs else overlay overlayFinal pkgs;
+      preFilter = if merge then overlayFinal else ourPackages;
+    in
+    if onlyDerivations then
+      pkgs.lib.attrsets.filterAttrs (
+        _k: v: (builtins.tryEval v).success && pkgs.lib.attrsets.isDerivation v
+      ) preFilter
+    else
+      preFilter;
+
+  getPkgs =
+    system:
+    import nixpkgs {
+      inherit system;
+      config = {
+        allowUnfree = true;
+        allowUnsupportedSystem = true;
+        nvidia.acceptLicense = true;
+      };
+    };
 }

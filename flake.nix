@@ -15,14 +15,12 @@
       # Helper to generate attributes for all supported systems
       forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems (system: f system);
 
-      # Define the main overlay
       defaultOverlay = final: prev:
       let
         # Required to load version files.
         inherit (final.lib.trivial) importJSON;
 
-        # Our utilities/helpers.
-        projectUtils = import ./utils.nix { lib = final.lib; };
+        projectUtils = import ./utils.nix { lib = final.lib; inherit nixpkgs defaultOverlay; };
         inherit (projectUtils) multiOverride;
 
         cachyosPackages = import ./pkgs/linux-cachyos {
@@ -30,7 +28,6 @@
           flakes = inputs;
         };
 
-        # Required for kernel packages
         inherit (final.stdenv) isLinux isx86_64;
 
       in
@@ -58,70 +55,28 @@
         zfs_cachyos = cachyosPackages.zfs;
       };
 
-      # Define utility functions (only applyOverlay is needed here;
-      # projectUtils in the overlay provides the rest)
-      utils = rec {
-        applyOverlay =
-          {
-            replace ? false,
-            merge ? false,
-            overlay ? defaultOverlay,
-            projectPkgs ? null,
-            onlyDerivations ? false,
-            pkgs,
-          }:
-          let
-            fullPackages = if replace then pkgs // ourPackages else ourPackages // pkgs;
-            overlayFinal = fullPackages // {
-              callPackage = pkgs.newScope overlayFinal;
-            };
-            ourPackages = if projectPkgs != null then projectPkgs else overlay overlayFinal pkgs;
-            preFilter = if merge then overlayFinal else ourPackages;
-          in
-          if onlyDerivations then
-            pkgs.lib.attrsets.filterAttrs (
-              _k: v: (builtins.tryEval v).success && pkgs.lib.attrsets.isDerivation v
-            ) preFilter
-          else
-            preFilter;
-      };
-
-      # Function to get pkgs for a specific system
-      getPkgs =
-        system:
-        import nixpkgs {
-          inherit system;
-          config = {
-            allowUnfree = true;
-            allowUnsupportedSystem = true;
-            nvidia.acceptLicense = true;
-          };
-        };
+      utils = import ./utils.nix { lib = nixpkgs.lib; inherit nixpkgs defaultOverlay; };
 
     in
     {
-      # Expose the default overlay
       overlays.default = defaultOverlay;
 
-      # Generate packages for all systems
       packages = forAllSystems (
         system:
         utils.applyOverlay {
-          pkgs = getPkgs system;
+          pkgs = utils.getPkgs system;
           onlyDerivations = true;
         }
       );
 
-      # Generate legacy packages for all systems
       legacyPackages = forAllSystems (
         system:
         utils.applyOverlay {
-          pkgs = getPkgs system;
+          pkgs = utils.getPkgs system;
         }
       );
 
-      # Generate formatter for all systems
-      formatter = forAllSystems (system: (getPkgs system).nixfmt-tree.override {
+      formatter = forAllSystems (system: (utils.getPkgs system).nixfmt-tree.override {
         settings = {
           tree-root-file = ".git/index";
           excludes = [ ];
@@ -132,7 +87,6 @@
         };
       });
 
-      # Also expose the utilities directly
       inherit utils;
     };
 }
