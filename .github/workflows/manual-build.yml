@@ -34,30 +34,36 @@ on:
         default: true
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+
+    steps:
+      - id: matrix
+        shell: bash
+        run: |
+          variants=()
+
+          [[ "${{ inputs.gcc }}" == "true" ]] && variants+=('"gcc"')
+          [[ "${{ inputs.lto }}" == "true" ]] && variants+=('"lto"')
+          [[ "${{ inputs.server }}" == "true" ]] && variants+=('"server"')
+          [[ "${{ inputs.hardened }}" == "true" ]] && variants+=('"hardened"')
+          [[ "${{ inputs.lts }}" == "true" ]] && variants+=('"lts"')
+          [[ "${{ inputs.rc }}" == "true" ]] && variants+=('"rc"')
+
+          printf 'matrix=[%s]\n' "$(IFS=,; echo "${variants[*]}")" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: prepare
+
     strategy:
       fail-fast: false
+      max-parallel: 3
+
       matrix:
-        include:
-          - variant: gcc
-            enabled: ${{ inputs.gcc }}
-
-          - variant: lto
-            enabled: ${{ inputs.lto }}
-
-          - variant: server
-            enabled: ${{ inputs.server }}
-
-          - variant: hardened
-            enabled: ${{ inputs.hardened }}
-
-          - variant: lts
-            enabled: ${{ inputs.lts }}
-
-          - variant: rc
-            enabled: ${{ inputs.rc }}
-
-    if: matrix.enabled
+        variant: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     runs-on: ubuntu-latest
 
