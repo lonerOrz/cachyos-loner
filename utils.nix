@@ -1,4 +1,4 @@
-{ lib, nixpkgs, defaultOverlay }:
+{ lib, nixpkgs ? null, defaultOverlay ? null }:
 
 rec {
   markBroken =

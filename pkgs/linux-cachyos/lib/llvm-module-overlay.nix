@@ -1,7 +1,8 @@
-{ final, projectUtils, ... }:
+{ final, ... }:
 kernel: _finalModules: prevModules:
 
 let
+  projectUtils = import ../../../utils.nix { lib = final.lib; };
   inherit (projectUtils) markBroken overrideFull multiOverride;
 
   fixNoVideo =

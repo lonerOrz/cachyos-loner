@@ -4,7 +4,6 @@
   config,
   configfile,
   callPackage,
-  projectUtils,
   lib,
   linuxManualConfig,
   stdenv,

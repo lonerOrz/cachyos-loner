@@ -7,7 +7,6 @@
   linuxPackages,
   linuxPackagesFor,
   fetchFromGitHub,
-  projectUtils,
   lib,
   buildPackages,
   ogKernelConfigfile ? linuxPackages.kernel.passthru.configfile,
@@ -34,6 +33,8 @@
 }:
 
 let
+  projectUtils = import ../../utils.nix { inherit lib; };
+
   cachyConfig = {
     inherit
       taste
