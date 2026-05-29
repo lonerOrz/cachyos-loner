@@ -21,8 +21,8 @@ let
   utils = import ../../utils.nix { inherit lib; };
   optionalAttr = key: pred: value: if pred then { "${key}" = value; } else { };
   updaterScript =
-    if cachyConfig.withUpdateScript != null then
-      callPackage ./update.nix { inherit (cachyConfig) withUpdateScript; }
+    if cachyConfig.updateConfig != null then
+      callPackage ./update.nix { updateConfig = cachyConfig.updateConfig; }
     else
       null;
 in
@@ -79,5 +79,5 @@ in
           } final;
         };
       }
-      // optionalAttr "updateScript" (cachyConfig.withUpdateScript != null) updaterScript;
+      // optionalAttr "updateScript" (cachyConfig.updateConfig != null) updaterScript;
   })

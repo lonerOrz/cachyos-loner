@@ -12,39 +12,11 @@
   nix,
   nix-prefetch-git,
   moreutils,
-  withUpdateScript,
+  updateConfig,
 }:
 
 let
-  flavors = {
-    "-gcc" = {
-      versionsFile = "versions.json";
-      suffix = "";
-    };
-    "-lto" = {
-      versionsFile = "versions.json";
-      suffix = "";
-    };
-    "-server" = {
-      versionsFile = "versions.json";
-      suffix = "";
-    };
-    "-lts" = {
-      versionsFile = "versions-lts.json";
-      suffix = "-lts";
-    };
-    "-rc" = {
-      versionsFile = "versions-rc.json";
-      suffix = "-rc";
-    };
-    "-hardened" = {
-      versionsFile = "versions-hardened.json";
-      suffix = "-hardened";
-    };
-  };
-
-  cfg = flavors.${withUpdateScript} or (throw "Unsupported withUpdateScript: ${withUpdateScript}");
-  inherit (cfg) versionsFile suffix;
+  inherit (updateConfig) versionsFile suffix flavor;
 
   path = lib.makeBinPath [
     coreutils curl findutils gnugrep gnused gawk jq moreutils git nix-prefetch-git nix
@@ -154,11 +126,11 @@ writeShellScriptBin "update-cachyos" ''
     ' "$srcJson" | sponge "$srcJson"
 
   out=$(nix build \
-    ".#packages.x86_64-linux.linux_cachyos${withUpdateScript}.kconfigToNix" \
+    ".#packages.x86_64-linux.linux_cachyos${flavor}.kconfigToNix" \
     --no-link --print-out-paths 2>/dev/null) || true
 
   if [ -n "$out" ] && [ -f "$out" ]; then
-    cat "$out" > pkgs/linux-cachyos/config-nix/cachyos${withUpdateScript}.x86_64-linux.nix
+    cat "$out" > pkgs/linux-cachyos/config-nix/cachyos${flavor}.x86_64-linux.nix
   fi
 
   git add pkgs/linux-cachyos

@@ -6,13 +6,14 @@
 let
   inherit (final.stdenv) isx86_64 isLinux;
 
-  # CachyOS repeating stuff.
-  mainVersions = builtins.fromJSON (builtins.readFile ./versions.json);
-  ltsVersions = builtins.fromJSON (builtins.readFile ./versions-lts.json);
-  rcVersions = builtins.fromJSON (builtins.readFile ./versions-rc.json);
-  hardenedVersions = builtins.fromJSON (builtins.readFile ./versions-hardened.json);
+  versions = {
+    main = builtins.fromJSON (builtins.readFile ./versions.json);
+    lts = builtins.fromJSON (builtins.readFile ./versions-lts.json);
+    rc = builtins.fromJSON (builtins.readFile ./versions-rc.json);
+    hardened = builtins.fromJSON (builtins.readFile ./versions-hardened.json);
+  };
 
-  ltoKernelAttrs = {
+  ltoBase = {
     taste = "linux-cachyos";
     configPath = ./config-nix/cachyos-lto.x86_64-linux.nix;
 
@@ -52,7 +53,8 @@ let
     description = "Linux EEVDF-BORE scheduler Kernel by CachyOS built with LLVM and Thin LTO";
   };
 
-  # Evaluation hack
+  isUnsupported = !isx86_64 || !isLinux;
+
   brokenReplacement = final.hello.overrideAttrs (prevAttrs: {
     meta = prevAttrs.meta // {
       platform = [ ];
@@ -60,11 +62,8 @@ let
     };
   });
 
-  isUnsupported = !isx86_64 || !isLinux;
-
   mkCachyKernel =
     if isUnsupported then
-      # Evaluation hack
       _attrs: {
         kernel = brokenReplacement;
         recurseForDerivations = false;
@@ -76,64 +75,38 @@ let
       }@attrs:
       callPackage ./packages-for.nix (
         {
-          versions = mainVersions;
+          versions = versions.main;
           inherit inputs;
           cachyOverride = newAttrs: mkCachyKernel (attrs // newAttrs);
         }
         // attrs
       );
 
-  gccKernel = mkCachyKernel {
+  # Reference needed for zfs derivation below
+  gccPackages = mkCachyKernel {
     taste = "linux-cachyos";
     configPath = ./config-nix/cachyos-gcc.x86_64-linux.nix;
-    withUpdateScript = "-gcc";
+    updateConfig = {
+      versionsFile = "versions.json";
+      suffix = "";
+      flavor = "-gcc";
+    };
   };
 in
 {
-  inherit
-    mainVersions
-    rcVersions
-    hardenedVersions
-    mkCachyKernel
-    ;
+  cachyos-gcc = gccPackages;
 
-  cachyos-gcc = gccKernel;
-
-  cachyos-lts = mkCachyKernel {
-    taste = "linux-cachyos-lts";
-    configPath = ./config-nix/cachyos-lts.x86_64-linux.nix;
-
-    versions = ltsVersions;
-    withUpdateScript = "-lts";
-
-    # Prevent building kernel modules for LTS kernel
-    packagesExtend =
-      _kernel: _final: prev:
-      prev // { recurseForDerivations = false; };
-  };
-
-  cachyos-rc = mkCachyKernel {
-    taste = "linux-cachyos-rc";
-    configPath = ./config-nix/cachyos-rc.x86_64-linux.nix;
-
-    versions = rcVersions;
-    withUpdateScript = "-rc";
-
-    # Prevent building kernel modules for rc kernel
-    packagesExtend =
-      _kernel: _final: prev:
-      prev // { recurseForDerivations = false; };
-  };
-  cachyos-lto = mkCachyKernel (ltoKernelAttrs // {
-    withUpdateScript = "-lto";
+  cachyos-lto = mkCachyKernel (ltoBase // {
+    updateConfig = {
+      versionsFile = "versions.json";
+      suffix = "";
+      flavor = "-lto";
+    };
   });
 
-  cachyos-lto-znver4 = mkCachyKernel (
-    ltoKernelAttrs
-    // {
-      configPath = ./config-nix/cachyos-znver4.x86_64-linux.nix;
-    }
-  );
+  cachyos-lto-znver4 = mkCachyKernel (ltoBase // {
+    configPath = ./config-nix/cachyos-znver4.x86_64-linux.nix;
+  });
 
   cachyos-sched-ext = throw "\"sched-ext\" patches were merged with \"cachyos\" flavor.";
 
@@ -150,7 +123,43 @@ in
     withNTSync = false;
     withHDR = false;
     description = "Linux EEVDF scheduler Kernel by CachyOS targeted for Servers";
-    withUpdateScript = "-server";
+    updateConfig = {
+      versionsFile = "versions.json";
+      suffix = "";
+      flavor = "-server";
+    };
+  };
+
+  cachyos-lts = mkCachyKernel {
+    taste = "linux-cachyos-lts";
+    configPath = ./config-nix/cachyos-lts.x86_64-linux.nix;
+
+    versions = versions.lts;
+    updateConfig = {
+      versionsFile = "versions-lts.json";
+      suffix = "-lts";
+      flavor = "-lts";
+    };
+
+    packagesExtend =
+      _kernel: _final: prev:
+      prev // { recurseForDerivations = false; };
+  };
+
+  cachyos-rc = mkCachyKernel {
+    taste = "linux-cachyos-rc";
+    configPath = ./config-nix/cachyos-rc.x86_64-linux.nix;
+
+    versions = versions.rc;
+    updateConfig = {
+      versionsFile = "versions-rc.json";
+      suffix = "-rc";
+      flavor = "-rc";
+    };
+
+    packagesExtend =
+      _kernel: _final: prev:
+      prev // { recurseForDerivations = false; };
   };
 
   cachyos-hardened = mkCachyKernel {
@@ -158,15 +167,19 @@ in
     configPath = ./config-nix/cachyos-hardened.x86_64-linux.nix;
     cpuSched = "hardened";
 
-    versions = hardenedVersions;
-    withUpdateScript = "-hardened";
+    versions = versions.hardened;
+    updateConfig = {
+      versionsFile = "versions-hardened.json";
+      suffix = "-hardened";
+      flavor = "-hardened";
+    };
 
     withNTSync = false;
     withHDR = false;
   };
 
   zfs = final.zfs_2_3.overrideAttrs (prevAttrs: {
-    src = if isUnsupported then brokenReplacement else gccKernel.zfs_cachyos.src;
+    src = if isUnsupported then brokenReplacement else gccPackages.zfs_cachyos.src;
     patches = [ ];
     passthru = prevAttrs.passthru // {
       kernelModuleAttribute = "zfs_cachyos";

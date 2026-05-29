@@ -10,7 +10,7 @@
   lib,
   buildPackages,
   ogKernelConfigfile ? linuxPackages.kernel.passthru.configfile,
-  withUpdateScript ? null,
+  updateConfig ? null,
   packagesExtend ? null,
   cachyOverride,
   extraMakeFlags ? [ ],
@@ -57,7 +57,7 @@ let
       withHDR
       withoutDebug
       description
-      withUpdateScript
+      updateConfig
       ;
   };
 
