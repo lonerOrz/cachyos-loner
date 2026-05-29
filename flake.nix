@@ -25,37 +25,8 @@
         projectUtils =
           let
             lib = final.lib;
-            projectOverlay = defaultOverlay;
           in
           rec {
-            # For viewing in our documentation page.
-            _description = "Pack of functions that are useful for Chaotic-Project and might become useful for you too";
-
-            # All the ways I found to overlay in nixpkgs
-            applyOverlay =
-              {
-                replace ? false,
-                merge ? false,
-                overlay ? projectOverlay,
-                projectPkgs ? null,
-                onlyDerivations ? false,
-                pkgs,
-              }:
-              let
-                fullPackages = if replace then pkgs // ourPackages else ourPackages // pkgs;
-                overlayFinal = fullPackages // {
-                  callPackage = pkgs.newScope overlayFinal;
-                };
-                ourPackages = if projectPkgs != null then projectPkgs else overlay overlayFinal pkgs;
-                preFilter = if merge then overlayFinal else ourPackages;
-              in
-              if onlyDerivations then
-                pkgs.lib.attrsets.filterAttrs (
-                  _k: v: (builtins.tryEval v).success && pkgs.lib.attrsets.isDerivation v
-                ) preFilter
-              else
-                preFilter;
-
             # Helps when batch-overriding.
             dropAttrsUpdateScript = builtins.mapAttrs (
               _k: v: if (v.passthru.updateScript or null) != null then v.overrideAttrs dropUpdateScript else v
