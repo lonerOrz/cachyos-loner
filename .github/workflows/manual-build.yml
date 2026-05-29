@@ -1,0 +1,95 @@
+name: Manual Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      gcc:
+        description: Build gcc
+        type: boolean
+        default: true
+
+      lto:
+        description: Build lto
+        type: boolean
+        default: true
+
+      server:
+        description: Build server
+        type: boolean
+        default: true
+
+      hardened:
+        description: Build hardened
+        type: boolean
+        default: true
+
+      lts:
+        description: Build lts
+        type: boolean
+        default: true
+
+      rc:
+        description: Build rc
+        type: boolean
+        default: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: gcc
+            enabled: ${{ inputs.gcc }}
+
+          - variant: lto
+            enabled: ${{ inputs.lto }}
+
+          - variant: server
+            enabled: ${{ inputs.server }}
+
+          - variant: hardened
+            enabled: ${{ inputs.hardened }}
+
+          - variant: lts
+            enabled: ${{ inputs.lts }}
+
+          - variant: rc
+            enabled: ${{ inputs.rc }}
+
+    if: matrix.enabled
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+
+      - name: Add Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 20
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            sandbox-fallback = false
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v16
+        with:
+          name: loneros
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          extraPullNames: nix-community
+
+      - name: Build Kernel
+        run: |
+          nix build .#linux_cachyos-${{ matrix.variant }} \
+            -L \
+            --impure
