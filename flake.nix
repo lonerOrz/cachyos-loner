@@ -11,7 +11,7 @@
       defaultOverlay =
         final: prev:
         let
-          cachyosPackages = import ./pkgs/linux-cachyos {
+          cachyosPackages = import ./linux-cachyos {
             inherit final prev;
             flakes = inputs;
           };

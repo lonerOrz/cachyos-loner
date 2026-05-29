@@ -1,7 +1,7 @@
 { final, flakes, ... }:
 
 let
-  projectUtils = import ../../../utils.nix { lib = final.lib; };
+  projectUtils = import ../../utils.nix { lib = final.lib; };
 in
 (final.pkgsLLVM.extend flakes.self.overlays.default).extend (
   _finalLLVM: prevLLVM: {

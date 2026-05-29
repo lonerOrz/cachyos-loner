@@ -34,7 +34,7 @@
 }:
 
 let
-  utils = import ../../utils.nix { inherit lib; };
+  utils = import ../utils.nix { inherit lib; };
 
   dropAttrsUpdateScript = builtins.mapAttrs (
     _k: v: if (v.passthru.updateScript or null) != null then v.overrideAttrs (prevAttrs: { passthru = removeAttrs prevAttrs.passthru [ "updateScript" ]; }) else v

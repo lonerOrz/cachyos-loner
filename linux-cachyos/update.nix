@@ -27,7 +27,7 @@ writeShellScriptBin "update-cachyos" ''
   set -euo pipefail
   PATH=${path}
 
-  srcJson="pkgs/linux-cachyos/${versionsFile}"
+  srcJson="linux-cachyos/${versionsFile}"
 
   localVer=$(jq -r .linux.version < "$srcJson")
   localTagrel=$(jq -r '.linux.tagrel // -1' < "$srcJson")
@@ -130,10 +130,10 @@ writeShellScriptBin "update-cachyos" ''
     --no-link --print-out-paths 2>/dev/null) || true
 
   if [ -n "$out" ] && [ -f "$out" ]; then
-    cat "$out" > pkgs/linux-cachyos/config-nix/cachyos${flavor}.x86_64-linux.nix
+    cat "$out" > linux-cachyos/config-nix/cachyos${flavor}.x86_64-linux.nix
   fi
 
-  git add pkgs/linux-cachyos
+  git add linux-cachyos
   git commit -m \
     "linux_cachyos${suffix}: $localVer-$localTagrel -> $latestVer-$latestTagrel"
 ''

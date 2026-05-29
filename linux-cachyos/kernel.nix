@@ -18,7 +18,7 @@
 }:
 let
   version = cachyConfig.versions.linux.version;
-  utils = import ../../utils.nix { inherit lib; };
+  utils = import ../utils.nix { inherit lib; };
   optionalAttr = key: pred: value: if pred then { "${key}" = value; } else { };
   updaterScript =
     if cachyConfig.updateConfig != null then
