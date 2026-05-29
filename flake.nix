@@ -607,8 +607,6 @@
             };
 
           # Matches build.yml and full-bump.yml
-          pinnedNix = pkgs.nixVersions.latest;
-
           dry-build =
             let
               allPackages = projectPkgs;
