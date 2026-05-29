@@ -54,6 +54,7 @@ in
       prevAttrs.passthru
       // {
         inherit cachyConfig kconfigToNix;
+        updateScript = callPackage ./update.nix { taste = cachyConfig.taste; };
         features = {
           efiBootStub = true;
           ia32Emulation = true;
