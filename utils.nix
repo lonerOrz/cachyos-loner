@@ -69,6 +69,7 @@ rec {
     import nixpkgs {
       inherit system;
       config = {
+        allowBroken = true;
         allowUnfree = true;
         allowUnsupportedSystem = true;
         nvidia.acceptLicense = true;
