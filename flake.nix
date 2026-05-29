@@ -56,9 +56,6 @@
               else
                 preFilter;
 
-            # When `removeByBaseName` and `removeByURL` can't help, use this to drop patches.
-            dropN = qty: list: lib.lists.take (builtins.length list - qty) list;
-
             # Helps when batch-overriding.
             dropAttrsUpdateScript = builtins.mapAttrs (
               _k: v: if (v.passthru.updateScript or null) != null then v.overrideAttrs dropUpdateScript else v
@@ -69,46 +66,6 @@
 
             # Helps when overriding.
             drvDropUpdateScript = package: package.overrideAttrs dropUpdateScript;
-
-            # NOTE: Don't use in your system's configuration, this helps in the repo's infra.
-            # Checks if a derivation is in a list.
-            drvElem = x: xs: builtins.elem x.drvPath (builtins.map (xsx: xsx.drvPath) xs);
-
-            # NOTE: Don't use in your system's configuration, this helps in the repo's infra
-            # Get's the hash of a derivation.
-            drvHash =
-              drv:
-              builtins.substring 0 32 (builtins.baseNameOf (builtins.unsafeDiscardStringContext drv.drvPath));
-
-            # NOTE: Don't use in your system's configuration, this helps in the repo's infra
-            # Get's the hash of a derivation.
-            outHash =
-              drv:
-              builtins.substring 0 32 (builtins.baseNameOf (builtins.unsafeDiscardStringContext drv.outPath));
-
-            # NOTE: Don't use in your system's configuration, this helps in the repo's infra.
-            # Finds dependencies in a derivation that are also present in a attrset filled with derivations.
-            internalDeps =
-              packages: drv:
-              let
-                allDeps = lib.strings.concatStringsSep " " (
-                  builtins.attrNames (builtins.getContext (builtins.toJSON drv.drvAttrs))
-                );
-              in
-              builtins.filter (
-                x: lib.strings.hasInfix (builtins.unsafeDiscardStringContext x.drvPath) allDeps
-              ) packages;
-
-            # Helps when converting flakes to src.
-            gitToVersion = src: "unstable-${src.lastModifiedDate}-${src.shortRev}";
-
-            # Helps when converting flakes to src.
-            gitOverride =
-              src: drv:
-              drv.overrideAttrs (_prevAttrs: {
-                version = gitToVersion src;
-                inherit src;
-              });
 
             # Don't waste user's time.
             markBroken =
@@ -121,10 +78,6 @@
 
             # Helps when overriding both inputs and outputs attrs.
             multiOverride = prev: newInputs: (prev.override newInputs).overrideAttrs;
-
-            # Helps when overriding both inputs and outputs attrs, multiple times.
-            multiOverrides =
-              prev: newInputs: lib.lists.foldl (accu: accu.overrideAttrs) (prev.override newInputs);
 
             # Single-value optional attr
             optionalAttr =
@@ -155,16 +108,6 @@
             removeByBaseName = baseName: builtins.filter (x: builtins.baseNameOf x != baseName);
 
             # Helps when dropping patches.
-            removeByName = baseName: builtins.filter (x: (x.name or null) != baseName);
-
-            # Helps when dropping multiple patches at once, same as the one before but taking a lit of names.
-            removeByNames = baseNames: builtins.filter (x: !builtins.elem (x.name or null) baseNames);
-
-            # Helps when dropping patches.
-            removeByBaseNames =
-              baseNames: builtins.filter (x: !builtins.elem (builtins.baseNameOf x) baseNames);
-
-            # Helps when dropping patches.
             removeByURL = url: builtins.filter (x: !(lib.attrsets.isDerivation x) || (x.url or null) != url);
 
             # Helps when dropping flags.
@@ -174,15 +117,6 @@
                 prefixLen = builtins.stringLength prefix;
               in
               builtins.filter (s: builtins.substring 0 prefixLen s != prefix);
-
-            # Helps when dropping flags.
-            removeByPrefixes =
-              prefixes: xs: lib.lists.foldl (accu: prefix: removeByPrefix prefix accu) xs prefixes;
-
-            # Helps updating flags
-            replaceStartingWith =
-              prefix: newSuffix:
-              builtins.map (x: if lib.strings.hasPrefix prefix x then prefix + newSuffix else x);
 
             # Helps when batch-overriding.
             setAttrsPlatforms =
@@ -203,9 +137,6 @@
 
             # For revs
             shorter = builtins.substring 0 7;
-
-            # Like `lib.fakeHash`, but beautier.
-            unreachableHash = "sha256-2342234223422342234223422342234223422342069=";
 
             # We don't want builders playing around here.
             recurseForDerivations = false;
