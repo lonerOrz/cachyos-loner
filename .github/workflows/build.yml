@@ -3,6 +3,11 @@ on:
   pull_request:
   push:
     branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     strategy:
@@ -11,5 +16,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+
+      - name: Add Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 20
+
+      - name: Check disk usage before build
+        run: |
+          df -h /
+          df -ih /
+          du -sh /nix-cache || true
+          du -sh /nix-tmp || true
+
       - uses: cachix/install-nix-action@v30
-      - run: nix build .#linux_cachyos-${{ matrix.variant }} -L
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v16
+        with:
+          name: loneros
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          extraPullNames: nix-community
+
+      - name: Verify Flake Instantiation
+        run: nix eval .#linux_cachyos-${{ matrix.variant }}.drvPath --raw --impure
+
+      - name: Build Kernel
+        run: nix build .#linux_cachyos-${{ matrix.variant }} -L --impure
