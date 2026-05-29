@@ -11,18 +11,12 @@
       defaultOverlay =
         final: prev:
         let
-          projectUtils = import ./utils.nix {
-            lib = final.lib;
-            inherit nixpkgs defaultOverlay;
-          };
-
           cachyosPackages = import ./pkgs/linux-cachyos {
-            inherit final projectUtils prev;
+            inherit final prev;
             flakes = inputs;
           };
         in
         {
-          inherit projectUtils;
 
           linux_cachyos = cachyosPackages.cachyos-gcc.kernel;
           linux_cachyos-lto = cachyosPackages.cachyos-lto.kernel;
@@ -59,27 +53,6 @@
         utils.applyOverlay {
           pkgs = utils.getPkgs system;
           onlyDerivations = true;
-        }
-      );
-
-      legacyPackages = forAllSystems (
-        system:
-        utils.applyOverlay {
-          pkgs = utils.getPkgs system;
-        }
-      );
-
-      formatter = forAllSystems (
-        system:
-        (utils.getPkgs system).nixfmt-tree.override {
-          settings = {
-            tree-root-file = ".git/index";
-            excludes = [ ];
-            formatter.nixfmt = {
-              command = "nixfmt";
-              includes = [ "*.nix" ];
-            };
-          };
         }
       );
     };
