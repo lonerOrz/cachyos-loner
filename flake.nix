@@ -37,16 +37,6 @@
 
             multiOverride = prev: newInputs: (prev.override newInputs).overrideAttrs;
 
-            optionalAttr =
-              key: pred: value:
-              if pred then { "${key}" = value; } else { };
-
-            overrideDescription = descriptionMap: prevAttrs: {
-              meta = (rejectAttr "longDescription" prevAttrs.meta) // {
-                description = descriptionMap prevAttrs.meta.description;
-              };
-            };
-
             overrideFull =
               newScope: prev:
               let
@@ -55,19 +45,6 @@
                 values = lib.attrsets.genAttrs names (arg: builtins.getAttr arg newScope);
               in
               prev.override values;
-
-            rejectAttr = x: lib.attrsets.filterAttrs (k: _v: k != x);
-
-            removeByBaseName = baseName: builtins.filter (x: builtins.baseNameOf x != baseName);
-
-            removeByURL = url: builtins.filter (x: !(lib.attrsets.isDerivation x) || (x.url or null) != url);
-
-            removeByPrefix =
-              prefix:
-              let
-                prefixLen = builtins.stringLength prefix;
-              in
-              builtins.filter (s: builtins.substring 0 prefixLen s != prefix);
 
             setAttrsPlatforms =
               platforms:
@@ -89,7 +66,7 @@
 
             recurseForDerivations = false;
           };
-        inherit (projectUtils) multiOverride overrideDescription;
+        inherit (projectUtils) multiOverride;
 
         cachyosPackages = import ./pkgs/linux-cachyos {
           inherit final projectUtils prev;
