@@ -128,7 +128,6 @@ let
     ++ damonConfig
     ++ ntSyncConfig
     ++ hdrConfig
-    ++ drmPanicConfig
     ++ disableDebug;
 
   # _cachy_config, defaults to "y"
@@ -304,14 +303,6 @@ let
 
   # custom made
   hdrConfig = lib.optionals cachyConfig.withHDR [ "-e AMD_PRIVATE_COLOR" ];
-
-  # DRM Panic QR Code (only for GCC kernels)
-  drmPanicConfig = lib.optionals (cachyConfig.useLTO == "none") [
-    "--set-str DRM_PANIC_SCREEN qr_code"
-    "-e DRM_PANIC_SCREEN_QR_CODE"
-    "--set-str DRM_PANIC_SCREEN_QR_CODE_URL https://panic.archlinux.org/panic_report#"
-    "--set-val DRM_PANIC_SCREEN_QR_VERSION 40"
-  ];
 
   # https://github.com/CachyOS/linux-cachyos/issues/187
   disableDebug =
