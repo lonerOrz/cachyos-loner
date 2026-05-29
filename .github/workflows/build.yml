@@ -1,21 +1,95 @@
 name: Build
 on:
   pull_request:
-  push:
-    branches: [main]
+    branches: [master, main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      variants: ${{ steps.compare-drvs.outputs.variants }}
+      run_build: ${{ steps.compare-drvs.outputs.run_build }}
+    steps:
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            sandbox-fallback = false
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
+
+      - name: Checkout PR (Head)
+        uses: actions/checkout@v6
+        with:
+          path: pr
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Checkout Main (Base)
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Compare Derivation Paths
+        id: compare-drvs
+        run: |
+          mkdir -p "$RUNNER_TEMP/eval-pr" "$RUNNER_TEMP/eval-base"
+          VARIANTS_LIST=(gcc lto server hardened lts rc)
+
+          cd pr
+          for var in "${VARIANTS_LIST[@]}"; do
+            nix eval ".#linux_cachyos-${var}.drvPath" --raw --impure > "$RUNNER_TEMP/eval-pr/${var}" 2>/dev/null || echo "error" > "$RUNNER_TEMP/eval-pr/${var}"
+          done
+          cd ..
+
+          cd base
+          for var in "${VARIANTS_LIST[@]}"; do
+            nix eval ".#linux_cachyos-${var}.drvPath" --raw --impure > "$RUNNER_TEMP/eval-base/${var}" 2>/dev/null || echo "error" > "$RUNNER_TEMP/eval-base/${var}"
+          done
+          cd ..
+
+          VARIANTS_ARRAY=()
+          for var in "${VARIANTS_LIST[@]}"; do
+            NEW_DRV=$(cat "$RUNNER_TEMP/eval-pr/${var}")
+            OLD_DRV=$(cat "$RUNNER_TEMP/eval-base/${var}")
+
+            if [ "$NEW_DRV" != "$OLD_DRV" ] || [ "$NEW_DRV" = "error" ] || [ "$OLD_DRV" = "error" ]; then
+              VARIANTS_ARRAY+=("$var")
+            fi
+          done
+
+          if [ ${#VARIANTS_ARRAY[@]} -eq 0 ]; then
+            RUN_BUILD="false"
+            VARIANTS="[]"
+          else
+            RUN_BUILD="true"
+            VARIANTS="["
+            for var in "${VARIANTS_ARRAY[@]}"; do
+              VARIANTS+="\"$var\","
+            done
+            VARIANTS="${VARIANTS%,}"
+            VARIANTS+="]"
+          fi
+
+          echo "variants=$VARIANTS" >> $GITHUB_OUTPUT
+          echo "run_build=$RUN_BUILD" >> $GITHUB_OUTPUT
+
   build:
+    needs: detect
+    if: needs.detect.outputs.run_build == 'true'
     strategy:
       matrix:
-        variant: [gcc, lto, server, hardened, lts, rc]
+        variant: ${{ fromJson(needs.detect.outputs.variants) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@main
@@ -32,7 +106,12 @@ jobs:
           du -sh /nix-cache || true
           du -sh /nix-tmp || true
 
-      - uses: cachix/install-nix-action@v30
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            sandbox-fallback = false
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
       - name: Setup Cachix
         uses: cachix/cachix-action@v16
@@ -40,9 +119,6 @@ jobs:
           name: loneros
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           extraPullNames: nix-community
-
-      - name: Verify Flake Instantiation
-        run: nix eval .#linux_cachyos-${{ matrix.variant }}.drvPath --raw --impure
 
       - name: Build Kernel
         run: nix build .#linux_cachyos-${{ matrix.variant }} -L --impure
