@@ -6,7 +6,7 @@
   outputs =
     { self, nixpkgs, ... }@inputs:
     let
-      forAllSystems = f: nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" ] (system: f system);
+      forAllSystems = f: nixpkgs.lib.genAttrs [ "x86_64-linux" ] (system: f system);
 
       defaultOverlay =
         final: prev:
