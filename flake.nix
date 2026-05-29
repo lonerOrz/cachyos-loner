@@ -64,9 +64,6 @@
             # Helps when overriding.
             dropUpdateScript = prevAttrs: { passthru = removeAttrs prevAttrs.passthru [ "updateScript" ]; };
 
-            # Helps when overriding.
-            drvDropUpdateScript = package: package.overrideAttrs dropUpdateScript;
-
             # Don't waste user's time.
             markBroken =
               drv:
@@ -141,7 +138,7 @@
             # We don't want builders playing around here.
             recurseForDerivations = false;
           };
-        inherit (projectUtils) multiOverride overrideDescription drvDropUpdateScript;
+        inherit (projectUtils) multiOverride overrideDescription;
 
         # Helps when calling .nix that will override packages.
         callOverride =
@@ -167,12 +164,12 @@
       {
         inherit projectUtils;
 
-        linux_cachyos = drvDropUpdateScript cachyosPackages.cachyos-gcc.kernel;
-        linux_cachyos-lto = drvDropUpdateScript cachyosPackages.cachyos-lto.kernel;
+        linux_cachyos = cachyosPackages.cachyos-gcc.kernel;
+        linux_cachyos-lto = cachyosPackages.cachyos-lto.kernel;
 
-        linux_cachyos-gcc = drvDropUpdateScript cachyosPackages.cachyos-gcc.kernel;
-        linux_cachyos-server = drvDropUpdateScript cachyosPackages.cachyos-server.kernel;
-        linux_cachyos-hardened = drvDropUpdateScript cachyosPackages.cachyos-hardened.kernel;
+        linux_cachyos-gcc = cachyosPackages.cachyos-gcc.kernel;
+        linux_cachyos-server = cachyosPackages.cachyos-server.kernel;
+        linux_cachyos-hardened = cachyosPackages.cachyos-hardened.kernel;
         linux_cachyos-rc = cachyosPackages.cachyos-rc.kernel;
         linux_cachyos-lts = cachyosPackages.cachyos-lts.kernel;
 
