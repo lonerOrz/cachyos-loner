@@ -1,5 +1,5 @@
 {
-  writeShellScript,
+  writeShellScriptBin,
   lib,
   coreutils,
   findutils,
@@ -60,7 +60,7 @@ let
   ];
 in
 with cfg;
-writeShellScript "update-cachyos" ''
+writeShellScriptBin "update-cachyos" ''
   set -euo pipefail
   PATH=${path}
 
