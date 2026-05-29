@@ -34,11 +34,13 @@ jobs:
 
           nix run github:linyinfeng/oranc#oranc -- \
             push \
+            --allow-immutable-db \
             --registry "$REGISTRY" \
             --repository "$REPOSITORY" \
             initialize || true
 
           cat ./paths.txt | nix run github:linyinfeng/oranc#oranc -- \
             push \
+            --allow-immutable-db \
             --registry "$REGISTRY" \
             --repository "$REPOSITORY"
