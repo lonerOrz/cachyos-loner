@@ -24,10 +24,15 @@ let
     inherit (cachyConfig.versions.config) rev hash;
   };
 
+  # Use GitHub releases tarball (PR #700) if tagrel is provided
   src =
-    if cachyConfig.taste == "linux-cachyos-rc" then
+    if cachyConfig.versions.linux ? tagrel then
+      let
+        inherit (cachyConfig.versions.linux) tagrel;
+        srctag = "cachyos-${version}-${toString tagrel}";
+      in
       fetchurl {
-        url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
+        url = "https://github.com/CachyOS/linux/releases/download/${srctag}/${srctag}.tar.gz";
         inherit (cachyConfig.versions.linux) hash;
       }
     else
@@ -48,18 +53,29 @@ let
         "${patches-src}/${majorMinor}/sched/0001-sched-ext.patch"
       ]
       ++ lib.optionals (cachyConfig.cpuSched == "cachyos" && version != "6.17-rc1") [
-        "${patches-src}/${majorMinor}/sched/0001-bore-cachy.patch"
+        (
+          if
+            version == "6.18.33"
+            && toString (cachyConfig.versions.linux.tagrel or "") == "1"
+            && cachyConfig.taste == "linux-cachyos-lts"
+          then
+            "${./0001-bore-cachy.patch}"
+          else
+            "${patches-src}/${majorMinor}/sched/0001-bore-cachy.patch"
+        )
       ]
     else
       throw "Unsupported cachyos _cpu_sched=${toString cachyConfig.cpuSched}";
 
-  patches = [
-    "${patches-src}/${majorMinor}/all/0001-cachyos-base-all.patch"
-  ]
-  ++ schedPatches
-  ++ lib.optional (
-    cachyConfig.cpuSched == "hardened"
-  ) "${patches-src}/${majorMinor}/misc/0001-hardened.patch";
+  # If tagrel is provided, base patch is in the GitHub release tarball
+  patches =
+    lib.optionals (!(cachyConfig.versions.linux ? tagrel)) [
+      "${patches-src}/${majorMinor}/all/0001-cachyos-base-all.patch"
+    ]
+    ++ schedPatches
+    ++ lib.optional (
+      cachyConfig.cpuSched == "hardened"
+    ) "${patches-src}/${majorMinor}/misc/0001-hardened.patch";
 
   # There are some configurations set by the PKGBUILD
   pkgbuildConfig =
@@ -144,7 +160,7 @@ let
         "--set-val X86_64_VERSION ${v}"
       ]
     else
-      throw "Unsuppoted cachyos mArch";
+      throw "Unsupported cachyos mArch";
 
   # _cpusched, defaults to "cachyos"
   cpuSchedConfig =
@@ -343,6 +359,7 @@ stdenv.mkDerivation (finalAttrs: {
   '';
 
   meta = ogKernelConfigfile.meta // {
+    # at the time of this writing, they don't have config files for aarch64
     platforms = [ "x86_64-linux" ];
   };
 

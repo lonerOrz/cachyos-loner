@@ -10,6 +10,7 @@
   lib,
   buildPackages,
   ogKernelConfigfile ? linuxPackages.kernel.passthru.configfile,
+  withUpdateScript ? null,
   packagesExtend ? null,
   cachyOverride,
   extraMakeFlags ? [ ],
@@ -33,7 +34,11 @@
 }:
 
 let
-  projectUtils = import ../../utils.nix { inherit lib; };
+  utils = import ../../utils.nix { inherit lib; };
+
+  dropAttrsUpdateScript = builtins.mapAttrs (
+    _k: v: if (v.passthru.updateScript or null) != null then v.overrideAttrs (prevAttrs: { passthru = removeAttrs prevAttrs.passthru [ "updateScript" ]; }) else v
+  );
 
   cachyConfig = {
     inherit
@@ -52,6 +57,7 @@ let
       withHDR
       withoutDebug
       description
+      withUpdateScript
       ;
   };
 
@@ -120,6 +126,16 @@ let
           };
           postPatch = builtins.replaceStrings [ "grep --quiet '^Linux-M" ] [ "# " ] prevAttrs.postPatch;
         });
+    nvidiaPackages = prevAttrs.nvidiaPackages.extend (
+      _finalNV: _prevNV: {
+        cachyos =
+          let
+            suffix = lib.strings.removePrefix "linux-cachyos" taste;
+            attrName = "nvidia_cachyos${suffix}";
+          in
+          (builtins.tryEval inputs.final.${attrName}).value or null;
+      }
+    );
     inherit cachyOverride;
   };
 
@@ -143,7 +159,8 @@ let
     "system76-scheduler"
     "perf"
   ];
-  packagesWithRightPlatforms = projectUtils.setAttrsPlatforms supportedPlatforms packagesWithRemovals;
+  packagesWithoutUpdateScript = dropAttrsUpdateScript packagesWithRemovals;
+  packagesWithRightPlatforms = utils.setAttrsPlatforms supportedPlatforms packagesWithoutUpdateScript;
 
   supportedPlatforms = [
     (with lib.systems.inspect.patterns; isx86_64 // isLinux)
@@ -151,10 +168,11 @@ let
     "x86_64-linux"
   ];
 
-  versionSuffix = "+C${projectUtils.shorter versions.config.rev}+P${projectUtils.shorter versions.patches.rev}";
+  versionSuffix = "+C${utils.shorter versions.config.rev}+P${utils.shorter versions.patches.rev}";
 in
 packagesWithRightPlatforms
 // {
   _description = "Kernel and modules for ${description}";
   _version = "${versions.linux.version}${versionSuffix}";
+  inherit (basePackages) kernel; # This one still has the updateScript
 }

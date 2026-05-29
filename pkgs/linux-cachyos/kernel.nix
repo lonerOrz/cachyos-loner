@@ -17,7 +17,14 @@
   final,
 }:
 let
-  inherit (cachyConfig.versions.linux) version;
+  version = cachyConfig.versions.linux.version;
+  utils = import ../../utils.nix { inherit lib; };
+  optionalAttr = key: pred: value: if pred then { "${key}" = value; } else { };
+  updaterScript =
+    if cachyConfig.withUpdateScript != null then
+      callPackage ./update.nix { inherit (cachyConfig) withUpdateScript; }
+    else
+      null;
 in
 (linuxManualConfig {
   inherit
@@ -54,7 +61,6 @@ in
       prevAttrs.passthru
       // {
         inherit cachyConfig kconfigToNix;
-        updateScript = callPackage ./update.nix { taste = cachyConfig.taste; };
         features = {
           efiBootStub = true;
           ia32Emulation = true;
@@ -64,6 +70,7 @@ in
         isZen = true;
         isHardened = cachyConfig.cpuSched == "hardened";
         isLibre = false;
+        updateScript = null;
         tests = (prevAttrs.passthru.tests or { }) // {
           plymouth = import ./test.nix {
             inherit kernelPackages;
@@ -71,5 +78,6 @@ in
             rootFlake = flakes.self;
           } final;
         };
-      };
+      }
+      // optionalAttr "updateScript" (cachyConfig.withUpdateScript != null) updaterScript;
   })

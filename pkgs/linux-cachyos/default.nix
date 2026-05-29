@@ -5,13 +5,12 @@
 
 let
   inherit (final.stdenv) isx86_64 isLinux;
-  inherit (final.lib.trivial) importJSON;
 
   # CachyOS repeating stuff.
-  mainVersions = importJSON ./versions.json;
-  ltsVersions = importJSON ./versions-lts.json;
-  rcVersions = importJSON ./versions-rc.json;
-  hardenedVersions = importJSON ./versions-hardened.json;
+  mainVersions = builtins.fromJSON (builtins.readFile ./versions.json);
+  ltsVersions = builtins.fromJSON (builtins.readFile ./versions-lts.json);
+  rcVersions = builtins.fromJSON (builtins.readFile ./versions-rc.json);
+  hardenedVersions = builtins.fromJSON (builtins.readFile ./versions-hardened.json);
 
   ltoKernelAttrs = {
     taste = "linux-cachyos";
@@ -19,6 +18,7 @@ let
 
     inherit (import ./lib/llvm-pkgs.nix inputs) callPackage;
     useLTO = "thin";
+    stdenv = final.clangStdenv;
 
     packagesExtend = import ./lib/llvm-module-overlay.nix inputs;
 
@@ -53,7 +53,7 @@ let
   };
 
   # Evaluation hack
-  brokenReplacement = final.mpv-handler.overrideAttrs (prevAttrs: {
+  brokenReplacement = final.hello.overrideAttrs (prevAttrs: {
     meta = prevAttrs.meta // {
       platform = [ ];
       broken = true;
@@ -86,6 +86,8 @@ let
   gccKernel = mkCachyKernel {
     taste = "linux-cachyos";
     configPath = ./config-nix/cachyos-gcc.x86_64-linux.nix;
+    # since all flavors use the same versions.json, we just need the updateScript in one of them
+    withUpdateScript = "stable";
   };
 in
 {
@@ -103,6 +105,7 @@ in
     configPath = ./config-nix/cachyos-lts.x86_64-linux.nix;
 
     versions = ltsVersions;
+    withUpdateScript = "lts";
 
     # Prevent building kernel modules for LTS kernel
     packagesExtend =
@@ -115,6 +118,7 @@ in
     configPath = ./config-nix/cachyos-rc.x86_64-linux.nix;
 
     versions = rcVersions;
+    withUpdateScript = "rc";
 
     # Prevent building kernel modules for rc kernel
     packagesExtend =
@@ -122,6 +126,13 @@ in
       prev // { recurseForDerivations = false; };
   };
   cachyos-lto = mkCachyKernel ltoKernelAttrs;
+
+  cachyos-lto-znver4 = mkCachyKernel (
+    ltoKernelAttrs
+    // {
+      configPath = ./config-nix/cachyos-znver4.x86_64-linux.nix;
+    }
+  );
 
   cachyos-sched-ext = throw "\"sched-ext\" patches were merged with \"cachyos\" flavor.";
 
@@ -146,6 +157,7 @@ in
     cpuSched = "hardened";
 
     versions = hardenedVersions;
+    withUpdateScript = "hardened";
 
     withNTSync = false;
     withHDR = false;
@@ -156,7 +168,6 @@ in
     patches = [ ];
     passthru = prevAttrs.passthru // {
       kernelModuleAttribute = "zfs_cachyos";
-      updateScript = null; # ignore nixpkgs update script
     };
     postPatch = builtins.replaceStrings [ "grep --quiet '^Linux-M" ] [ "# " ] prevAttrs.postPatch;
   });
