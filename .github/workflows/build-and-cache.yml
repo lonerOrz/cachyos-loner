@@ -17,32 +17,31 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 安装 Nix
-        uses: DeterminateSystems/nix-installer-action@main
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            sandbox-fallback = false
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
-      - name: 安装 oranc 工具
-        run: |
-          sudo ln -s $(nix build github:linyinfeng/oranc#oranc --print-out-paths --no-link)/bin/oranc /usr/local/bin/oranc
+      - name: 设置 Cachix 缓存
+        uses: cachix/cachix-action@v16
+        with:
+          name: loneros
+          extraPullNames: nix-community
 
-      - name: 构建系统/软件包
-        run: |
-          nix build nixpkgs#hello --no-link --print-out-paths > ./paths.txt
+      - name: 安装 noci 工具
+        run: nix profile install github:lonerOrz/noci
 
-      - name: 签名并推送缓存至 OCI
+      - name: 智能构建并推送缓存至 OCI
         env:
-          ORANC_USERNAME: ${{ github.actor }}
-          ORANC_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          ORANC_SIGNING_KEY: ${{ secrets.ORANC_SIGNING_KEY }}
+          NOCI_SIGNING_KEY: ${{ secrets.NOCI_SIGNING_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          REGISTRY="ghcr.io"
-          REPOSITORY="${{ github.repository }}"
+          noci push .#linux_cachyos-gcc
 
-          sudo -E oranc \
-            push \
-            --registry "$REGISTRY" \
-            --repository "$REPOSITORY" \
-            initialize || true
-
-          cat ./paths.txt | sudo -E oranc \
-            push \
-            --registry "$REGISTRY" \
-            --repository "$REPOSITORY"
+      - name: 执行自动化垃圾回收
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          noci gc --max-size 5GB --grace-period 6h --dry-run=false
