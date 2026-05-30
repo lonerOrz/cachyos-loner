@@ -1,4 +1,4 @@
-name: 构建并推送到 OCI Nix 缓存
+name: Build and Push Nix Cache
 
 on:
   push:
@@ -13,10 +13,10 @@ jobs:
   build-and-cache:
     runs-on: ubuntu-latest
     steps:
-      - name: 拉取代码
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 安装 Nix
+      - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
@@ -24,24 +24,25 @@ jobs:
             sandbox-fallback = false
             access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
-      - name: 设置 Cachix 缓存
+      - name: Setup Cachix
         uses: cachix/cachix-action@v16
         with:
           name: loneros
           extraPullNames: nix-community
 
-      - name: 安装 noci 工具
+      - name: Install noci
         run: nix profile install github:lonerOrz/noci
 
-      - name: 智能构建并推送缓存至 OCI
+      - name: Build and Push Cache
         env:
+          NOCI_REPO: ${{ github.repository_owner }}/cachyos-loner
           NOCI_SIGNING_KEY: ${{ secrets.NOCI_SIGNING_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOCI_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           noci push .#linux_cachyos-gcc
 
-      - name: 执行自动化垃圾回收
+      - name: Run Garbage Collection
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOCI_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           noci gc --max-size 5GB --grace-period 6h --dry-run=false
