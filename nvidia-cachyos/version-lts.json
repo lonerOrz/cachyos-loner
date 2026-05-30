@@ -1,10 +1,27 @@
 {
-  "version": "595.71.05",
-  "major": "7.0",
-  "hash": "sha256-NiA7iWC35JyKQva6H1hjzeNKBek9KyS3mK8G3YRva4I=",
-  "aarch64Hash": "sha256-XzKloS00dFKTd4ATWkTIhm9eG/OzR/Sim6MboNZWPu8=",
-  "openHash": "sha256-yyYRTJfvJWg3en61Xvl+VZxC8baGI4tNCdem+r0MrVA=",
-  "settingsHash": "sha256-mXnf3jyvznfB3OfKd657rxv0rYHQb/dX/Riw/+N9EKU=",
-  "persistencedHash": "sha256-6CGwMd+Zc2kZNkMVUBpin1/P4/c3Mz1PaC8EzF2yjfc=",
-  "patches": []
+  "version": "610.43.02",
+  "major": "6.18",
+  "hash": "sha256-MDSgVLtM33dS/43CclZMsQVROAS/9TU4lFkBsWyndGM=",
+  "aarch64Hash": "sha256-isWTnokUA/dzWocFBLalnk4+O5gSExVjs3dVpdYTU88=",
+  "openHash": "sha256-hP5NVZZ4vGsACHLmUDKq4uckpd/kn1GxCSYnnJfAuBs=",
+  "settingsHash": "sha256-0YAhufRgjDW+uR+kjaTb154fibpcDw8QowfrucoZsKE=",
+  "persistencedHash": "sha256-dObfc/suksLZr0CsU1GHtDJS2EeHO93eopkN2BLGklg=",
+  "patches": [
+    {
+      "name": "0001-Enable-atomic-kernel-modesetting-by-default.patch",
+      "hash": "sha256-FjxXFgzBAzAgaA9ji0Tr2UtJYVLc2JUeh9UHfU1cIAk="
+    },
+    {
+      "name": "0002-Add-IBT-support.patch",
+      "hash": "sha256-oAiNSdRraZ0XJ+WUT9mspe3pPqNnjdXpHKWAhLwvoO4="
+    },
+    {
+      "name": "0003-nvidia-uvm-Remove-unused-get_devmap_page-parameter.patch",
+      "hash": "sha256-K8pu/fz0krIPTVJQgS8REraeL9fJUUik4zE5z2j8CG4="
+    },
+    {
+      "name": "0004-nvkms-Limit-default-maximum-TMDS-character-rate-to-3.patch",
+      "hash": "sha256-wa2LBqqFrAH7MD/G1jKdPPII7hzXwpGNB+lwU5dR4W4="
+    }
+  ]
 }
