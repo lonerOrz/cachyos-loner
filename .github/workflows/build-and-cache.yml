@@ -1,20 +1,84 @@
-name: Build and Push Nix Cache
+name: Manual Build and Cache
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      gcc:
+        description: "Build GCC variant"
+        type: boolean
+        default: true
+      lto:
+        description: "Build LTO variant"
+        type: boolean
+        default: true
+      server:
+        description: "Build Server variant"
+        type: boolean
+        default: true
+      hardened:
+        description: "Build Hardened variant"
+        type: boolean
+        default: true
+      lts:
+        description: "Build LTS variant"
+        type: boolean
+        default: true
+      rc:
+        description: "Build RC variant"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
   packages: write
 
 jobs:
-  build-and-cache:
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - id: matrix
+        shell: bash
+        run: |
+          variants=()
+
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            variants=('"gcc"' '"lto"' '"server"' '"hardened"' '"lts"' '"rc"')
+          else
+            [[ "${{ inputs.gcc }}" == "true" ]] && variants+=('"gcc"')
+            [[ "${{ inputs.lto }}" == "true" ]] && variants+=('"lto"')
+            [[ "${{ inputs.server }}" == "true" ]] && variants+=('"server"')
+            [[ "${{ inputs.hardened }}" == "true" ]] && variants+=('"hardened"')
+            [[ "${{ inputs.lts }}" == "true" ]] && variants+=('"lts"')
+            [[ "${{ inputs.rc }}" == "true" ]] && variants+=('"rc"')
+          fi
+
+          printf 'matrix=[%s]\n' "$(IFS=,; echo "${variants[*]}")" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 3 # 限制并发数以防 GitHub 算力受阻
+      matrix:
+        variant: ${{ fromJson(needs.prepare.outputs.matrix) }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+
+      - name: Add Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 20
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
@@ -28,6 +92,7 @@ jobs:
         uses: cachix/cachix-action@v16
         with:
           name: loneros
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           extraPullNames: nix-community
 
       - name: Install noci
@@ -39,10 +104,27 @@ jobs:
           NOCI_SIGNING_KEY: ${{ secrets.NOCI_SIGNING_KEY }}
           NOCI_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          noci push .#linux_cachyos-gcc
+          noci push .#"linux_cachyos-${{ matrix.variant }}^*"
+          noci push .#"nvidia_cachyos-${{ matrix.variant }}^*"
+
+  garbage-collect:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            sandbox-fallback = false
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
+
+      - name: Install noci
+        run: nix profile install github:lonerOrz/noci
 
       - name: Run Garbage Collection
         env:
           NOCI_TOKEN: ${{ secrets.GH_TOKEN }}
+          NOCI_REPO: ${{ github.repository_owner }}/cachyos-loner
         run: |
           noci gc --max-size 5GB --grace-period 6h --dry-run=false

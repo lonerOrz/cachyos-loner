@@ -3,7 +3,6 @@
   kconfigToNix,
   config,
   configfile,
-  callPackage,
   lib,
   linuxManualConfig,
   stdenv,
@@ -35,8 +34,8 @@ in
 
   kernelPatches =
     kernelPatches
-    ++ builtins.map (filename: {
-      name = builtins.baseNameOf filename;
+    ++ map (filename: {
+      name = baseNameOf filename;
       patch = filename;
     }) configfile.passthru.kernelPatches;
 
@@ -51,25 +50,23 @@ in
   (prevAttrs: {
     postPatch = prevAttrs.postPatch + configfile.extraVerPatch;
     # bypasses https://github.com/NixOS/nixpkgs/issues/216529
-    passthru =
-      prevAttrs.passthru
-      // {
-        inherit cachyConfig kconfigToNix;
-        features = {
-          efiBootStub = true;
-          ia32Emulation = true;
-          netfilterRPFilter = true;
-        };
-        isLTS = false;
-        isZen = true;
-        isHardened = cachyConfig.cpuSched == "hardened";
-        isLibre = false;
-        tests = (prevAttrs.passthru.tests or { }) // {
-          plymouth = import ./test.nix {
-            inherit kernelPackages;
-            inherit (flakes) nixpkgs;
-            rootFlake = flakes.self;
-          } final;
-        };
+    passthru = prevAttrs.passthru // {
+      inherit cachyConfig kconfigToNix;
+      features = {
+        efiBootStub = true;
+        ia32Emulation = true;
+        netfilterRPFilter = true;
       };
+      isLTS = false;
+      isZen = true;
+      isHardened = cachyConfig.cpuSched == "hardened";
+      isLibre = false;
+      tests = (prevAttrs.passthru.tests or { }) // {
+        plymouth = import ./test.nix {
+          inherit kernelPackages;
+          inherit (flakes) nixpkgs;
+          rootFlake = flakes.self;
+        } final;
+      };
+    };
   })

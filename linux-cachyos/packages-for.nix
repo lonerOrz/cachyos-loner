@@ -37,7 +37,13 @@ let
   utils = import ../utils.nix { inherit lib; };
 
   dropAttrsUpdateScript = builtins.mapAttrs (
-    _k: v: if (v.passthru.updateScript or null) != null then v.overrideAttrs (prevAttrs: { passthru = removeAttrs prevAttrs.passthru [ "updateScript" ]; }) else v
+    _k: v:
+    if (v.passthru.updateScript or null) != null then
+      v.overrideAttrs (prevAttrs: {
+        passthru = removeAttrs prevAttrs.passthru [ "updateScript" ];
+      })
+    else
+      v
   );
 
   cachyConfig = {
@@ -61,10 +67,6 @@ let
       ;
   };
 
-  # The three phases of the config
-  # - First we apply the changes fromt their PKGBUILD using kconfig;
-  # - Then we NIXify it (in the update-script);
-  # - Last state is importing the NIXified version for building.
   preparedConfigfile = callPackage ./prepare.nix {
     inherit
       cachyConfig
@@ -86,7 +88,8 @@ let
     config = linuxConfigTransfomed;
     # For tests
     inherit (inputs) flakes final;
-    kernelPackages = packagesWithRightPlatforms;
+    kernelPackages = basePackages;
+    # kernelPackages = packagesWithRightPlatforms;
   };
 
   kernelWithUpdateScript = kernel.overrideAttrs (prevAttrs: {

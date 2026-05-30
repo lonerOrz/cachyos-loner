@@ -15,6 +15,16 @@
             inherit final prev;
             flakes = inputs;
           };
+
+          # Helps when calling .nix that will override packages.
+          callOverride =
+            path: attrs:
+            import path (
+              {
+                inherit final inputs prev;
+              }
+              // attrs
+            );
         in
         {
 
@@ -37,6 +47,14 @@
           linuxPackages_cachyos-hardened = cachyosPackages.cachyos-hardened;
           linuxPackages_cachyos-rc = cachyosPackages.cachyos-rc;
           linuxPackages_cachyos-lts = cachyosPackages.cachyos-lts;
+
+          nvidia_cachyos = callOverride ./nvidia-cachyos { };
+          nvidia_cachyos-gcc = final.nvidia_cachyos;
+          nvidia_cachyos-lto = final.nvidia_cachyos;
+          nvidia_cachyos-rc = callOverride ./nvidia-cachyos { variant = "rc"; };
+          nvidia_cachyos-server = callOverride ./nvidia-cachyos { variant = "server"; };
+          nvidia_cachyos-hardened = callOverride ./nvidia-cachyos { variant = "hardened"; };
+          nvidia_cachyos-lts = callOverride ./nvidia-cachyos { variant = "lts"; };
 
           zfs_cachyos = cachyosPackages.zfs;
         };

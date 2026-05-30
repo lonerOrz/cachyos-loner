@@ -1,4 +1,7 @@
-{ final, ... }:
+{
+  final,
+  ...
+}:
 kernel: _finalModules: prevModules:
 
 let
@@ -20,7 +23,7 @@ with prevModules;
       {
         inherit (final) python3;
       }
-      (prevAttrs: rec {
+      (prevAttrs: {
         env = prevAttrs.env // {
           CFLAGS = "";
         };
