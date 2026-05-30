@@ -1,8 +1,6 @@
 name: Build and Cache
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       gcc:
@@ -30,6 +28,11 @@ on:
         type: boolean
         default: true
 
+env:
+  NOCI_REPO: ${{ github.repository }}
+  NOCI_TOKEN: ${{ secrets.GH_TOKEN }}
+  NOCI_SIGNING_KEY: ${{ secrets.NOCI_SIGNING_KEY }}
+
 permissions:
   contents: read
   packages: write
@@ -40,6 +43,19 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
+      - name: Verify Environment and Secrets
+        shell: bash
+        run: |
+          if [ -z "$NOCI_TOKEN" ]; then
+            echo "::error::GH_TOKEN is not set or empty."
+            exit 1
+          fi
+          if [ -z "$NOCI_SIGNING_KEY" ]; then
+            echo "::error::NOCI_SIGNING_KEY is not set or empty."
+            exit 1
+          fi
+          echo "All required environment variables and secrets are set."
+
       - id: matrix
         shell: bash
         run: |
@@ -70,7 +86,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ env.NOCI_TOKEN }}
 
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@main
@@ -86,45 +102,24 @@ jobs:
           extra_nix_config: |
             accept-flake-config = true
             sandbox-fallback = false
-            access-tokens = github.com=${{ secrets.GH_TOKEN }}
-
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v16
-        with:
-          name: loneros
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          extraPullNames: nix-community
+            access-tokens = github.com=${{ env.NOCI_TOKEN }}
+            substituters = http://127.0.0.1:8080 https://cache.nixos.org
+            trusted-public-keys = oranc-test:sn8r8W7fdgYpA31C8Za+tvSyjdgToG7zPilxYjR2/EA= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
 
       - name: Install noci
         run: nix profile install github:lonerOrz/noci
 
+      - name: Start proxy
+        run: |
+          noci proxy \
+            --port 8080 \
+            --repo "$NOCI_REPO" \
+            --listen 0.0.0.0 \
+            &
+          # 给 proxy 一点启动时间
+          sleep 2
+
       - name: Build and Push Cache
-        env:
-          NOCI_REPO: ${{ github.repository_owner }}/cachyos-loner
-          NOCI_SIGNING_KEY: ${{ secrets.NOCI_SIGNING_KEY }}
-          NOCI_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           noci push .#"linux_cachyos-${{ matrix.variant }}^*"
           noci push .#"nvidia_cachyos-${{ matrix.variant }}^*"
-
-  garbage-collect:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-        with:
-          extra_nix_config: |
-            accept-flake-config = true
-            sandbox-fallback = false
-            access-tokens = github.com=${{ secrets.GH_TOKEN }}
-
-      - name: Install noci
-        run: nix profile install github:lonerOrz/noci
-
-      - name: Run Garbage Collection
-        env:
-          NOCI_TOKEN: ${{ secrets.GH_TOKEN }}
-          NOCI_REPO: ${{ github.repository_owner }}/cachyos-loner
-        run: |
-          noci gc --max-size 5GB --grace-period 6h --dry-run=false
