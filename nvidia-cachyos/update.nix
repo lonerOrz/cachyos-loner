@@ -37,22 +37,18 @@ writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
 
   pkgbuild=$(curl -fsSL "https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos${suffix}/PKGBUILD")
   latestVer=$(echo "$pkgbuild" | grep -Po '(?<=_nv_ver=)([^[:space:]]+)')
-  major=$(echo "$pkgbuild" | grep -Po '(?<=^_major=)[0-9.]+')
 
   localVer=$(jq -r '.version // ""' < "$srcJson")
-  localMajor=$(jq -r '.major // ""' < "$srcJson")
   mainHash=$(jq -r '.hash // ""' < "$srcJson")
   aarch64Hash=$(jq -r '.aarch64Hash // ""' < "$srcJson")
   openHash=$(jq -r '.openHash // ""' < "$srcJson")
   settingsHash=$(jq -r '.settingsHash // ""' < "$srcJson")
   persistencedHash=$(jq -r '.persistencedHash // ""' < "$srcJson")
-  localPatches=$(jq -c '.patches // []' < "$srcJson")
 
   versionChanged=false
-  patchesChanged=false
 
-  if [[ "$localVer" != "$latestVer" || "$localMajor" != "$major" ]]; then
-    echo "Version changed: $localVer -> $latestVer"
+  if [[ "$localVer" != "$latestVer" ]]; then
+    echo "NVIDIA Version changed: $localVer -> $latestVer"
     versionChanged=true
   fi
 
@@ -71,63 +67,19 @@ writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
     openHash=$(fetch_hash_unpack "https://github.com/NVIDIA/open-gpu-kernel-modules/archive/$latestVer.tar.gz")
     settingsHash=$(fetch_hash_unpack "https://github.com/NVIDIA/nvidia-settings/archive/$latestVer.tar.gz")
     persistencedHash=$(fetch_hash "https://download.nvidia.com/XFree86/nvidia-persistenced/nvidia-persistenced-$latestVer.tar.bz2")
-  fi
 
-  newPatchesJson="[]"
-  if [[ -n "$major" ]]; then
-    echo "Checking patches for major version $major..."
-    patches_json=$(curl -fsSL "https://api.github.com/repos/cachyos/kernel-patches/contents/$major/misc/nvidia" 2>/dev/null) || patches_json=""
-
-    if [[ -n "$patches_json" ]]; then
-      new_patches=$(
-        echo "$patches_json" \
-        | jq -r '.[] | select(.name | endswith(".patch")) | .name' \
-        | sort \
-        | while read -r name; do
-            url="https://raw.githubusercontent.com/cachyos/kernel-patches/master/$major/misc/nvidia/$name"
-            hash=$(fetch_hash "$url")
-            jq -nc --arg name "$name" --arg hash "$hash" '{name: $name, hash: $hash}'
-          done \
-        | jq -s '. | sort_by(.name)'
-      )
-
-      if [[ -z "$new_patches" ]]; then
-        new_patches="[]"
-      fi
-
-      newPatchesStr=$(echo "$new_patches" | jq -c .)
-      localPatchesStr=$(echo "$localPatches" | jq -c .)
-
-      if [[ "$newPatchesStr" != "$localPatchesStr" ]]; then
-        echo "Patches changed"
-        patchesChanged=true
-        newPatchesJson="$new_patches"
-      else
-        newPatchesJson="$localPatches"
-      fi
-    else
-      echo "Warning: Could not fetch patch list from GitHub API or directory does not exist"
-      newPatchesJson="$localPatches"
-    fi
-  else
-    newPatchesJson="$localPatches"
-  fi
-
-  if [[ "$versionChanged" == "true" || "$patchesChanged" == "true" ]]; then
     jq \
       --arg ver "$latestVer" \
-      --arg major "$major" \
       --arg main "$mainHash" \
       --arg aarch64 "$aarch64Hash" \
       --arg open "$openHash" \
       --arg settings "$settingsHash" \
       --arg persistenced "$persistencedHash" \
-      --argjson patches "$newPatchesJson" \
-      '.version = $ver | .major = $major | .hash = $main | .aarch64Hash = $aarch64 | .openHash = $open | .settingsHash = $settings | .persistencedHash = $persistenced | .patches = $patches' \
+      '.version = $ver | .hash = $main | .aarch64Hash = $aarch64 | .openHash = $open | .settingsHash = $settings | .persistencedHash = $persistenced' \
       "$srcJson" | sponge "$srcJson"
 
-    echo "Successfully updated $srcJson (Version: $latestVer, Major: $major)"
+    echo "Successfully updated $srcJson to $latestVer"
   else
-    echo "NVIDIA CachyOS is already up to date (Version: $localVer, Patches unchanged)"
+    echo "NVIDIA CachyOS is already up to date (Version: $localVer)"
   fi
 ''

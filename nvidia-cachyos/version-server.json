@@ -1,39 +1,8 @@
 {
   "version": "610.43.02",
-  "major": "7.0",
   "hash": "sha256-MDSgVLtM33dS/43CclZMsQVROAS/9TU4lFkBsWyndGM=",
   "aarch64Hash": "sha256-isWTnokUA/dzWocFBLalnk4+O5gSExVjs3dVpdYTU88=",
   "openHash": "sha256-hP5NVZZ4vGsACHLmUDKq4uckpd/kn1GxCSYnnJfAuBs=",
   "settingsHash": "sha256-0YAhufRgjDW+uR+kjaTb154fibpcDw8QowfrucoZsKE=",
-  "persistencedHash": "sha256-dObfc/suksLZr0CsU1GHtDJS2EeHO93eopkN2BLGklg=",
-  "patches": [
-    {
-      "name": "0001-Enable-atomic-kernel-modesetting-by-default.patch",
-      "hash": "sha256-FjxXFgzBAzAgaA9ji0Tr2UtJYVLc2JUeh9UHfU1cIAk="
-    },
-    {
-      "name": "0002-Add-IBT-support.patch",
-      "hash": "sha256-oAiNSdRraZ0XJ+WUT9mspe3pPqNnjdXpHKWAhLwvoO4="
-    },
-    {
-      "name": "0003-Fix-compile-for-6.19.patch",
-      "hash": "sha256-aUMXPpnQrs4gqCxO+57slHH0qKfdQEd9eC5UEMjXL5A="
-    },
-    {
-      "name": "0003-fix-dsc-correct-RC-parameter-tables-to-match-VESA-DS.patch",
-      "hash": "sha256-cQCKT2XNWYwjRuIgRuh/iKqowE8EQC8CXryYiMj6RDs="
-    },
-    {
-      "name": "0004-HACK-kernel-open-Makefile-Remove-PAHOLE_VARIABLE.patch",
-      "hash": "sha256-WyxtVskxbGsikorX/528FN/gBqMSgOWEU5rfCUKFnlM="
-    },
-    {
-      "name": "0004-fix-dsc-use-bits_per_component-for-flatnessDetThresh.patch",
-      "hash": "sha256-wmDYTqoFwxVlDKf7my3f9cxT6xwlML1U+iIwaRLzoGE="
-    },
-    {
-      "name": "0005-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch",
-      "hash": "sha256-u2UiV+XLDepDKoPJcdAUBres+cvbBUrfiVTFZL4OTnQ="
-    }
-  ]
+  "persistencedHash": "sha256-dObfc/suksLZr0CsU1GHtDJS2EeHO93eopkN2BLGklg="
 }

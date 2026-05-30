@@ -15,14 +15,6 @@ let
 
   updater = final.callPackage ./update.nix { inherit variant; };
 
-  cachyosPatches = map (
-    p:
-    final.fetchpatch {
-      url = "https://raw.githubusercontent.com/cachyos/kernel-patches/master/${versions.major}/misc/nvidia/${p.name}";
-      hash = p.hash;
-    }
-  ) (versions.patches or [ ]);
-
   # Select the appropriate CachyOS Linux packages based on the variant
   cachyosLinuxPackages =
     if variant == "stable" then
@@ -50,8 +42,6 @@ if cachyosLinuxPackages ? nvidiaPackages then
       openSha256 = versions.openHash;
       settingsSha256 = versions.settingsHash;
       persistencedSha256 = versions.persistencedHash;
-
-      patchesOpen = cachyosPatches;
     }
   )
 else
