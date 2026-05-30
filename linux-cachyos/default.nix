@@ -90,21 +90,30 @@ let
     updateConfig = {
       versionsFile = "versions.json";
       suffix = "";
-      flavors = ["-gcc" "-lto"];
+      flavors = [
+        "-gcc"
+        "-lto"
+      ];
     };
   };
 in
 {
   cachyos-gcc = gccPackages;
 
-  cachyos-lto = mkCachyKernel (ltoBase // {
-    updateConfig = null;
-  });
+  cachyos-lto = mkCachyKernel (
+    ltoBase
+    // {
+      updateConfig = null;
+    }
+  );
 
-  cachyos-lto-znver4 = mkCachyKernel (ltoBase // {
-    configPath = ./config-nix/cachyos-znver4.x86_64-linux.nix;
-    updateConfig = null;
-  });
+  cachyos-lto-znver4 = mkCachyKernel (
+    ltoBase
+    // {
+      configPath = ./config-nix/cachyos-znver4.x86_64-linux.nix;
+      updateConfig = null;
+    }
+  );
 
   cachyos-sched-ext = throw "\"sched-ext\" patches were merged with \"cachyos\" flavor.";
 
@@ -125,7 +134,7 @@ in
     updateConfig = {
       versionsFile = "versions-server.json";
       suffix = "-server";
-      flavors = ["-server"];
+      flavors = [ "-server" ];
     };
   };
 
@@ -137,7 +146,7 @@ in
     updateConfig = {
       versionsFile = "versions-lts.json";
       suffix = "-lts";
-      flavors = ["-lts"];
+      flavors = [ "-lts" ];
     };
 
     packagesExtend =
@@ -153,7 +162,7 @@ in
     updateConfig = {
       versionsFile = "versions-rc.json";
       suffix = "-rc";
-      flavors = ["-rc"];
+      flavors = [ "-rc" ];
     };
 
     packagesExtend =
@@ -170,7 +179,7 @@ in
     updateConfig = {
       versionsFile = "versions-hardened.json";
       suffix = "-hardened";
-      flavors = ["-hardened"];
+      flavors = [ "-hardened" ];
     };
 
     withNTSync = false;

@@ -1,4 +1,8 @@
-{ final, flakes, ... }:
+{
+  final,
+  flakes,
+  ...
+}:
 
 let
   projectUtils = import ../../utils.nix { lib = final.lib; };

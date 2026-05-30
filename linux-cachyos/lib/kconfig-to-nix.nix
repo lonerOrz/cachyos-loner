@@ -1,4 +1,8 @@
-{ runCommand, configfile }:
+{
+  runCommand,
+  configfile,
+}:
+
 # taken from <nixpkgs>/pkgs/os-specific/linux/kernel/manual-config.nix
 runCommand "config.nix" { } ''
   echo "{" > "$out"
