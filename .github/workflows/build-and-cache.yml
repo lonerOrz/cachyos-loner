@@ -64,7 +64,7 @@ jobs:
             access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
       - name: Setup noci cache
-        uses: lonerOrz/noci-action@v1
+        uses: lonerOrz/noci/action@main
         with:
           repo: ${{ github.repository }}
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
