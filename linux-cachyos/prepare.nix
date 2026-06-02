@@ -59,7 +59,7 @@ let
             && toString (cachyConfig.versions.linux.tagrel or "") == "1"
             && cachyConfig.taste == "linux-cachyos-lts"
           then
-            "${./0001-bore-cachy.patch}"
+            "${./patches/0001-bore-cachy.patch}"
           else
             "${patches-src}/${majorMinor}/sched/0001-bore-cachy.patch"
         )
@@ -73,9 +73,12 @@ let
       "${patches-src}/${majorMinor}/all/0001-cachyos-base-all.patch"
     ]
     ++ schedPatches
-    ++ lib.optional (
-      cachyConfig.cpuSched == "hardened"
-    ) "${patches-src}/${majorMinor}/misc/0001-hardened.patch";
+    ++ lib.optional (cachyConfig.cpuSched == "hardened") (
+      if version == "7.0.11" && toString (cachyConfig.versions.linux.tagrel or "") == "1" then
+        ./patches/0001-hardened.patch
+      else
+        "${patches-src}/${majorMinor}/misc/0001-hardened.patch"
+    );
 
   # There are some configurations set by the PKGBUILD
   pkgbuildConfig =
