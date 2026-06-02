@@ -1,13 +1,13 @@
 {
   "suffix": "-cachyos",
   "linux": {
-    "version": "7.0.10",
-    "hash": "sha256-miu0QO8sqzQOiwxCULa8XTtGi6BD+fNTzGrOncvOTTw=",
-    "tagrel": 2
+    "version": "7.0.11",
+    "hash": "sha256-YlAvkISJkHD2k5/yQvxqj2dqPjCI0C7GtlOFKldBqkA=",
+    "tagrel": 1
   },
   "config": {
-    "rev": "1d38a1c83db0cddff4963516eb3f6838981cb6ae",
-    "hash": "sha256-FS/SbuYuRt5biCp1ja0Se12V2q3Y3p+O+rAdFQvuJT4="
+    "rev": "a61f943f5e94b75c5600a2968cb699d0e37945b3",
+    "hash": "sha256-T15bnskj20rdc4vJ55bFF2lVCVR8edilWn0hiYR7vVs="
   },
   "patches": {
     "rev": "b87558b7c865628c48c1d6ff5c827b9df40e9281",
