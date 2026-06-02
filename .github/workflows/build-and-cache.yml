@@ -3,35 +3,16 @@ name: Build and Cache
 on:
   workflow_dispatch:
     inputs:
-      gcc:
-        description: "Build GCC variant"
+      gcc: { type: boolean, default: true }
+      lto: { type: boolean, default: true }
+      server: { type: boolean, default: true }
+      hardened: { type: boolean, default: true }
+      lts: { type: boolean, default: true }
+      rc: { type: boolean, default: true }
+      run_gc:
+        description: "Run Garbage Collection after build"
         type: boolean
         default: true
-      lto:
-        description: "Build LTO variant"
-        type: boolean
-        default: true
-      server:
-        description: "Build Server variant"
-        type: boolean
-        default: true
-      hardened:
-        description: "Build Hardened variant"
-        type: boolean
-        default: true
-      lts:
-        description: "Build LTS variant"
-        type: boolean
-        default: true
-      rc:
-        description: "Build RC variant"
-        type: boolean
-        default: true
-
-env:
-  NOCI_REPO: ${{ github.repository }}
-  NOCI_TOKEN: ${{ secrets.GH_TOKEN }}
-  NOCI_SIGNING_KEY: ${{ secrets.NOCI_SIGNING_KEY }}
 
 permissions:
   contents: read
@@ -43,35 +24,16 @@ jobs:
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - name: Verify Environment and Secrets
-        shell: bash
-        run: |
-          if [ -z "$NOCI_TOKEN" ]; then
-            echo "::error::GH_TOKEN is not set or empty."
-            exit 1
-          fi
-          if [ -z "$NOCI_SIGNING_KEY" ]; then
-            echo "::error::NOCI_SIGNING_KEY is not set or empty."
-            exit 1
-          fi
-          echo "All required environment variables and secrets are set."
-
       - id: matrix
         shell: bash
         run: |
           variants=()
-
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            variants=('"gcc"' '"lto"' '"server"' '"hardened"' '"lts"' '"rc"')
-          else
-            [[ "${{ inputs.gcc }}" == "true" ]] && variants+=('"gcc"')
-            [[ "${{ inputs.lto }}" == "true" ]] && variants+=('"lto"')
-            [[ "${{ inputs.server }}" == "true" ]] && variants+=('"server"')
-            [[ "${{ inputs.hardened }}" == "true" ]] && variants+=('"hardened"')
-            [[ "${{ inputs.lts }}" == "true" ]] && variants+=('"lts"')
-            [[ "${{ inputs.rc }}" == "true" ]] && variants+=('"rc"')
-          fi
-
+          [[ "${{ inputs.gcc }}" == "true" ]] && variants+=('"gcc"')
+          [[ "${{ inputs.lto }}" == "true" ]] && variants+=('"lto"')
+          [[ "${{ inputs.server }}" == "true" ]] && variants+=('"server"')
+          [[ "${{ inputs.hardened }}" == "true" ]] && variants+=('"hardened"')
+          [[ "${{ inputs.lts }}" == "true" ]] && variants+=('"lts"')
+          [[ "${{ inputs.rc }}" == "true" ]] && variants+=('"rc"')
           printf 'matrix=[%s]\n' "$(IFS=,; echo "${variants[*]}")" >> "$GITHUB_OUTPUT"
 
   build:
@@ -79,14 +41,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      max-parallel: 3 # 限制并发数以防 GitHub 算力受阻
+      max-parallel: 3
       matrix:
         variant: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ env.NOCI_TOKEN }}
 
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@main
@@ -101,25 +61,32 @@ jobs:
         with:
           extra_nix_config: |
             accept-flake-config = true
-            sandbox-fallback = false
-            access-tokens = github.com=${{ env.NOCI_TOKEN }}
-            substituters = http://127.0.0.1:8080 https://cache.nixos.org
-            trusted-public-keys = oranc-test:sn8r8W7fdgYpA31C8Za+tvSyjdgToG7zPilxYjR2/EA= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
-      - name: Install noci
-        run: nix profile install github:lonerOrz/noci
+      - name: Setup noci cache
+        uses: lonerOrz/noci-action@v1
+        with:
+          repo: ${{ github.repository }}
+          signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
+          token: ${{ secrets.GH_TOKEN }}
 
-      - name: Start proxy
+      - name: Build Targets
         run: |
-          noci proxy \
-            --port 8080 \
-            --repo "$NOCI_REPO" \
-            --listen 0.0.0.0 \
-            &
-          # 给 proxy 一点启动时间
-          sleep 2
+          nix build .#"linux_cachyos-${{ matrix.variant }}" -L
+          nix build .#"nvidia_cachyos-${{ matrix.variant }}" -L
 
-      - name: Build and Push Cache
+  cleanup:
+    needs: build
+    if: ${{ github.event.inputs.run_gc == 'true' || github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run noci GC
         run: |
-          noci push .#"linux_cachyos-${{ matrix.variant }}^*"
-          noci push .#"nvidia_cachyos-${{ matrix.variant }}^*"
+          nix run github:lonerOrz/noci -- gc \
+            --repo ${{ github.repository }} \
+            --max-size 10GB \
+            --grace-period 168h \
+            --dry-run=false \
+            --physical-sweep
+        env:
+          NOCI_TOKEN: ${{ secrets.GH_TOKEN }}
