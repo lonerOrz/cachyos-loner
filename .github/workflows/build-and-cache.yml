@@ -79,7 +79,15 @@ jobs:
     needs: build
     if: ${{ github.event.inputs.run_gc == 'true' || github.event_name == 'push' }}
     runs-on: ubuntu-latest
+
     steps:
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
+
       - name: Run noci GC
         run: |
           nix run github:lonerOrz/noci -- gc \
