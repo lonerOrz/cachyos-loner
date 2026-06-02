@@ -113,12 +113,12 @@ jobs:
             sandbox-fallback = false
             access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v16
+      - name: Setup noci cache
+        uses: lonerOrz/noci/action@main
         with:
-          name: loneros
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          extraPullNames: nix-community
+          repo: ${{ github.repository }}
+          signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Build Kernel
         run: nix build .#linux_cachyos-${{ matrix.variant }} -L --impure
