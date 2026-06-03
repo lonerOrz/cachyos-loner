@@ -56,6 +56,9 @@ jobs:
                 --body "Automated CachyOS kernel update for variant: \`${VARIANT}\`." \
                 --base main \
                 --head "$BRANCH_NAME"
+
+              PR_NUMBER=$(gh pr view "$BRANCH_NAME" --json number --jq .number)
+              gh pr merge "$PR_NUMBER" --auto --squash
             else
               gh pr comment "$PR_NUMBER" --body "This pull request has been updated with new changes: \`${COMMIT_TITLE}\`."
             fi
@@ -100,6 +103,9 @@ jobs:
                 --body "Automated NVIDIA CachyOS driver update for variant: \`${VARIANT}\`." \
                 --base main \
                 --head "$BRANCH_NAME"
+
+              PR_NUMBER=$(gh pr view "$BRANCH_NAME" --json number --jq .number)
+              gh pr merge "$PR_NUMBER" --auto --squash
             else
               gh pr comment "$PR_NUMBER" --body "This pull request has been updated with new changes: \`${COMMIT_TITLE}\`."
             fi
