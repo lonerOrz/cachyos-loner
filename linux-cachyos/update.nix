@@ -44,53 +44,44 @@ writeShellScriptBin "update-cachyos" ''
   localTagrel=$(jq -r '.linux.tagrel // -1' < "$srcJson")
 
   fetch_pkgbuild() {
-    curl -fsSL \
+    curl -fsSL --connect-timeout 10 --max-time 30 \
       "https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos${suffix}/PKGBUILD"
   }
 
-  parse_version() {
+  parse_all() {
     awk -F= '
       /^[[:space:]]*_major[[:space:]]*=/ { gsub(/[[:space:]]/, "", $2); major=$2 }
       /^[[:space:]]*_minor[[:space:]]*=/ { gsub(/[[:space:]]/, "", $2); minor=$2 }
       /^[[:space:]]*_rcver[[:space:]]*=/  { gsub(/[[:space:]]/, "", $2); rcver=$2 }
       /^[[:space:]]*_ltsver[[:space:]]*=/ { gsub(/[[:space:]]/, "", $2); ltsver=$2 }
-      END {
-        if (rcver != "")  print major "-" rcver
-        else if (ltsver != "") print major "." ltsver
-        else print major "." minor
-      }
-    '
-  }
-
-  parse_tagrel() {
-    awk -F= '/^[[:space:]]*_tagrel[[:space:]]*=/ { gsub(/[[:space:]]/, "", $2); print $2; exit }'
-  }
-
-  parse_srctag() {
-    awk -F= '
-      /^[[:space:]]*_major[[:space:]]*=/  { gsub(/[[:space:]]/, "", $2); major=$2 }
-      /^[[:space:]]*_minor[[:space:]]*=/  { gsub(/[[:space:]]/, "", $2); minor=$2 }
-      /^[[:space:]]*_rcver[[:space:]]*=/  { gsub(/[[:space:]]/, "", $2); rcver=$2 }
-      /^[[:space:]]*_ltsver[[:space:]]*=/ { gsub(/[[:space:]]/, "", $2); ltsver=$2 }
       /^[[:space:]]*_tagrel[[:space:]]*=/ { gsub(/[[:space:]]/, "", $2); tagrel=$2 }
       END {
-        if (rcver != "")  print "cachyos-" major "-" rcver "-" tagrel
-        else if (ltsver != "") print "cachyos-" major "." ltsver "-" tagrel
-        else print "cachyos-" major "." minor "-" tagrel
+        if (rcver != "") {
+          version = major "-" rcver
+          srctag = "cachyos-" major "-" rcver "-" tagrel
+        } else if (ltsver != "") {
+          version = major "." ltsver
+          srctag = "cachyos-" major "." ltsver "-" tagrel
+        } else {
+          version = major "." minor
+          srctag = "cachyos-" major "." minor "-" tagrel
+        }
+        print version " " tagrel " " srctag
       }
     '
   }
 
   pkgbuild=$(fetch_pkgbuild)
+  read -r latestVer latestTagrel srcTag < <(parse_all <<< "$pkgbuild")
 
-  latestVer=$(printf "%s\n" "$pkgbuild" | parse_version)
-  latestTagrel=$(printf "%s\n" "$pkgbuild" | parse_tagrel)
-  srcTag=$(printf "%s\n" "$pkgbuild" | parse_srctag)
   srcUrl="https://github.com/CachyOS/linux/releases/download/''${srcTag}/''${srcTag}.tar.gz"
 
-  if [[ "''${FORCE:-0}" != "1" && "$localVer" == "$latestVer" && "$localTagrel" == "$latestTagrel" ]]; then
+  if [[ "''${"FORCE:-0"}" != "1" && "$localVer" == "$latestVer" && "$localTagrel" == "$latestTagrel" ]]; then
+    echo "Already up to date: $latestVer-$latestTagrel"
     exit 0
   fi
+
+  echo "Updating: $localVer-$localTagrel -> $latestVer-$latestTagrel"
 
   latestHash=$(nix-prefetch-url --type sha256 "$srcUrl" \
     | xargs nix-hash --to-sri --type sha256)
@@ -147,6 +138,5 @@ writeShellScriptBin "update-cachyos" ''
   done
 
   git add linux-cachyos
-  git commit -m \
-    "linux_cachyos${suffix}: $localVer-$localTagrel -> $latestVer-$latestTagrel"
+  git commit -m "linux_cachyos${suffix}: $localVer-$localTagrel -> $latestVer-$latestTagrel"
 ''

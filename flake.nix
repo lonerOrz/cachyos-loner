@@ -6,7 +6,8 @@
   outputs =
     { self, nixpkgs, ... }@inputs:
     let
-      forAllSystems = f: nixpkgs.lib.genAttrs [ "x86_64-linux" ] (system: f system);
+      lib = nixpkgs.lib;
+      forAllSystems = lib.genAttrs [ "x86_64-linux" ];
 
       defaultOverlay =
         final: prev:
@@ -16,7 +17,6 @@
             flakes = inputs;
           };
 
-          # Helps when calling .nix that will override packages.
           callOverride =
             path: attrs:
             import path (
@@ -25,12 +25,20 @@
               }
               // attrs
             );
+
+          dropUpdate =
+            pkg:
+            pkg.overrideAttrs (prevAttrs: {
+              passthru = (prevAttrs.passthru or { }) // {
+                autoUpdate = false;
+                updateScript = null;
+              };
+            });
         in
         {
-
-          linux_cachyos = cachyosPackages.cachyos-gcc.kernel;
-          linux_cachyos-lto = cachyosPackages.cachyos-lto.kernel;
-          linux_cachyos-lto-znver4 = cachyosPackages.cachyos-lto-znver4.kernel;
+          linux_cachyos = dropUpdate final.linux_cachyos-gcc;
+          linux_cachyos-lto = dropUpdate cachyosPackages.cachyos-lto.kernel;
+          linux_cachyos-lto-znver4 = dropUpdate cachyosPackages.cachyos-lto-znver4.kernel;
 
           linux_cachyos-gcc = cachyosPackages.cachyos-gcc.kernel;
           linux_cachyos-server = cachyosPackages.cachyos-server.kernel;
@@ -49,21 +57,58 @@
           linuxPackages_cachyos-lts = cachyosPackages.cachyos-lts;
 
           nvidia_cachyos = callOverride ./nvidia-cachyos { };
-          nvidia_cachyos-gcc = final.nvidia_cachyos;
-          nvidia_cachyos-lto = final.nvidia_cachyos;
+          nvidia_cachyos-gcc = dropUpdate final.nvidia_cachyos;
+          nvidia_cachyos-lto = dropUpdate final.nvidia_cachyos;
           nvidia_cachyos-rc = callOverride ./nvidia-cachyos { variant = "rc"; };
           nvidia_cachyos-server = callOverride ./nvidia-cachyos { variant = "server"; };
           nvidia_cachyos-hardened = callOverride ./nvidia-cachyos { variant = "hardened"; };
           nvidia_cachyos-lts = callOverride ./nvidia-cachyos { variant = "lts"; };
 
-          zfs_cachyos = cachyosPackages.zfs;
+          zfs_cachyos = dropUpdate cachyosPackages.zfs;
         };
 
       utils = import ./utils.nix {
-        lib = nixpkgs.lib;
-        inherit nixpkgs defaultOverlay;
+        inherit lib nixpkgs defaultOverlay;
       };
 
+      updateApp =
+        system:
+        let
+          pkgs = utils.getPkgs system;
+          updateScript = pkgs.writeShellApplication {
+            name = "update";
+            runtimeInputs = with pkgs; [
+              python3
+              nix-update
+              nix-prefetch-git
+              git
+              curl
+              cacert
+              jq
+              moreutils
+              gnused
+              gawk
+              gnugrep
+              findutils
+              coreutils
+            ];
+            text = ''
+              export GIT_EDITOR="true"
+              export GIT_CONFIG_COUNT="1"
+              export GIT_CONFIG_KEY_0="commit.gpgSign"
+              export GIT_CONFIG_VALUE_0="false"
+
+              python .github/scripts/update.py "$@"
+            '';
+          };
+        in
+        {
+          type = "app";
+          program = lib.getExe updateScript;
+          meta = {
+            description = "Update linux-cachyos kernel and module versions";
+          };
+        };
     in
     {
       overlays.default = defaultOverlay;
@@ -75,5 +120,9 @@
           onlyDerivations = true;
         }
       );
+
+      apps = forAllSystems (system: {
+        update = updateApp system;
+      });
     };
 }
