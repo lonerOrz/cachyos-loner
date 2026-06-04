@@ -34,15 +34,46 @@ let
 in
 
 if cachyosLinuxPackages ? nvidiaPackages then
-  fixNoVideo (
-    cachyosLinuxPackages.nvidiaPackages.mkDriver {
-      inherit (versions) version;
-      sha256_64bit = versions.hash;
-      sha256_aarch64 = versions.aarch64Hash;
-      openSha256 = versions.openHash;
-      settingsSha256 = versions.settingsHash;
-      persistencedSha256 = versions.persistencedHash;
-    }
+  let
+    driver = fixNoVideo (
+      cachyosLinuxPackages.nvidiaPackages.mkDriver {
+        inherit (versions) version;
+        sha256_64bit = versions.hash;
+        sha256_aarch64 = versions.aarch64Hash;
+        openSha256 = versions.openHash;
+        settingsSha256 = versions.settingsHash;
+        persistencedSha256 = versions.persistencedHash;
+      }
+    );
+
+    needsDevRefFix = variant == "lto";
+
+    # Work around leaked kernel.dev references in NVIDIA kernel
+    # modules on the CachyOS LTO kernel. These references trip
+    # the strict allowedReferences check in nixpkgs.
+    nukeDevRefs =
+      drv:
+      drv.overrideAttrs (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ final.removeReferencesTo ];
+
+        postFixup = (old.postFixup or "") + ''
+          find $out/lib/modules -name '*.ko*' \
+            -exec remove-references-to \
+              -t ${cachyosLinuxPackages.kernel.dev} {} \; \
+            2>/dev/null || true
+        '';
+      });
+  in
+  driver
+  // (
+    if needsDevRefFix then
+      {
+        open = if driver.open != null then nukeDevRefs driver.open else null;
+
+        mod = if driver.mod != null then nukeDevRefs driver.mod else null;
+      }
+    else
+      { }
   )
 else
   final.runCommand "unsupported-nvidia-cachyos" { } ''
