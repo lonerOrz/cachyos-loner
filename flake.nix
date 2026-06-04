@@ -61,7 +61,7 @@
 
           nvidia_cachyos = callOverride ./nvidia-cachyos { };
           nvidia_cachyos-gcc = dropUpdate final.nvidia_cachyos;
-          nvidia_cachyos-lto = dropUpdate final.nvidia_cachyos;
+          nvidia_cachyos-lto = dropUpdate (callOverride ./nvidia-cachyos { variant = "lto"; });
           nvidia_cachyos-rc = callOverride ./nvidia-cachyos { variant = "rc"; };
           nvidia_cachyos-server = callOverride ./nvidia-cachyos { variant = "server"; };
           nvidia_cachyos-hardened = callOverride ./nvidia-cachyos { variant = "hardened"; };
@@ -69,7 +69,7 @@
 
           nvidia_cachyos-open = dropUpdate final.nvidia_cachyos.open;
           nvidia_cachyos-gcc-open = dropUpdate final.nvidia_cachyos-open;
-          nvidia_cachyos-lto-open = dropUpdate final.nvidia_cachyos-open;
+          nvidia_cachyos-lto-open = dropUpdate final.nvidia_cachyos-lto.open;
           nvidia_cachyos-rc-open = dropUpdate final.nvidia_cachyos-rc.open;
           nvidia_cachyos-server-open = dropUpdate final.nvidia_cachyos-server.open;
           nvidia_cachyos-hardened-open = dropUpdate final.nvidia_cachyos-hardened.open;
@@ -179,17 +179,50 @@
 
           isCoreModule =
             name:
-            (!(lib.strings.hasInfix "nvidia" name) || !(lib.strings.hasInfix "linuxPackages" name))
-            && (
-              (lib.strings.hasInfix "nvidia" name)
-              || (lib.strings.hasInfix "zfs_cachyos" name)
-              || (lib.strings.hasInfix "xone" name)
-              || (lib.strings.hasInfix "xpadneo" name)
-              || (lib.strings.hasInfix "zenpower" name)
-              || (lib.strings.hasInfix "v4l2loopback" name)
-              || (lib.strings.hasInfix "rtl88" name)
-              || (lib.strings.hasInfix "evdi" name)
-            );
+            let
+              isNestedNvidia = lib.strings.hasInfix "nvidia" name && lib.strings.hasInfix "linuxPackages" name;
+              targetKeywords = [
+                "nvidia"
+                "zfs_cachyos"
+                "xone"
+                "xpadneo"
+                "zenpower"
+                "v4l2loopback"
+                "rtl88"
+                "evdi"
+              ];
+              hasTargetKeyword = lib.any (keyword: lib.strings.hasInfix keyword name) targetKeywords;
+            in
+            (!isNestedNvidia) && hasTargetKeyword;
+
+          extractModuleDrvs =
+            variantName: moduleName:
+            let
+              moduleVal = safeGetAttr linuxPkgs.${variantName} moduleName;
+              fullName = "linuxPackages.${system}.${variantName}.${moduleName}";
+            in
+            if moduleVal == null then
+              [ ]
+            else if isDerivation moduleVal then
+              [
+                {
+                  name = fullName;
+                  value = safeGetDrvPath moduleVal;
+                }
+              ]
+            else if builtins.isAttrs moduleVal && !(moduleVal ? type) then
+              map (
+                subName:
+                let
+                  subVal = safeGetAttr moduleVal subName;
+                in
+                {
+                  name = "${fullName}.${subName}";
+                  value = safeGetDrvPath subVal;
+                }
+              ) (builtins.filter (n: safeIsDerivation moduleVal n) (builtins.attrNames moduleVal))
+            else
+              [ ];
 
           flatPackages = builtins.listToAttrs (
             map (name: {
@@ -199,53 +232,19 @@
           );
 
           allNested = builtins.listToAttrs (
-            builtins.concatLists (
-              map (
-                variantName:
-                let
-                  variantSet = linuxPkgs.${variantName} or { };
-                in
-                if builtins.isAttrs variantSet then
-                  builtins.concatLists (
-                    map (
-                      moduleName:
-                      let
-                        moduleVal = safeGetAttr variantSet moduleName;
-                        fullName = "linuxPackages.${system}.${variantName}.${moduleName}";
-                      in
-                      if moduleVal == null then
-                        [ ]
-                      else if isDerivation moduleVal then
-                        [
-                          {
-                            name = fullName;
-                            value = safeGetDrvPath moduleVal;
-                          }
-                        ]
-                      else if builtins.isAttrs moduleVal && !(moduleVal ? type) then
-                        map (
-                          subName:
-                          let
-                            subVal = safeGetAttr moduleVal subName;
-                            subFullName = "linuxPackages.${system}.${variantName}.${moduleName}.${subName}";
-                          in
-                          {
-                            name = subFullName;
-                            value = safeGetDrvPath subVal;
-                          }
-                        ) (builtins.filter (n: safeIsDerivation moduleVal n) (builtins.attrNames moduleVal))
-                      else
-                        [ ]
-                    ) (builtins.attrNames variantSet)
-                  )
-                else
-                  [ ]
-              ) (builtins.attrNames linuxPkgs)
-            )
+            lib.concatMap (
+              variantName:
+              let
+                variantSet = linuxPkgs.${variantName} or { };
+              in
+              if builtins.isAttrs variantSet then
+                lib.concatMap (moduleName: extractModuleDrvs variantName moduleName) (builtins.attrNames variantSet)
+              else
+                [ ]
+            ) (builtins.attrNames linuxPkgs)
           );
 
           allCombined = flatPackages // allNested;
-
           partitioned = lib.filterAttrs (name: value: value != "error") allCombined;
         in
         {
