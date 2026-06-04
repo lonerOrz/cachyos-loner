@@ -3,12 +3,24 @@ name: Build and Cache
 on:
   workflow_dispatch:
     inputs:
-      gcc: { type: boolean, default: true }
-      lto: { type: boolean, default: true }
-      server: { type: boolean, default: true }
-      hardened: { type: boolean, default: true }
-      lts: { type: boolean, default: true }
-      rc: { type: boolean, default: true }
+      gcc:
+        type: boolean
+        default: true
+      lto:
+        type: boolean
+        default: true
+      server:
+        type: boolean
+        default: true
+      hardened:
+        type: boolean
+        default: true
+      lts:
+        type: boolean
+        default: true
+      rc:
+        type: boolean
+        default: true
       run_gc:
         description: "Run Garbage Collection after build"
         type: boolean
@@ -59,7 +71,7 @@ jobs:
                   $enabled[] as $var |
                   ($k | contains("-" + $var)) or
                   ($k | contains("cachyos-" + $var)) or
-                  ($var == "gcc" and ($k | contains("linux_cachyos")))
+                  ($var == "gcc" and (($k | split(".") | last) == "linux_cachyos"))
               ))
               | group_by(.value) | map(.[0].key)
             ' -c)
@@ -74,7 +86,12 @@ jobs:
                   $enabled[] as $var |
                   ($k | contains("-" + $var)) or
                   ($k | contains("cachyos-" + $var)) or
-                  ($var == "gcc" and (($k | contains("nvidia_cachyos")) or ($k | contains("zfs_cachyos"))))
+                  ($var == "gcc" and (
+                    ($k | split(".") | last) as $last |
+                    $last == "nvidia_cachyos" or
+                    $last == "nvidia_cachyos-open" or
+                    $last == "zfs_cachyos"
+                  ))
               ))
               | group_by(.value) | map(.[0].key)
             ' -c)

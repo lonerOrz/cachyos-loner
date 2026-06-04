@@ -170,6 +170,13 @@
             in
             if tryEval.success then tryEval.value else "error";
 
+          safeIsDerivation =
+            set: attr:
+            let
+              val = safeGetAttr set attr;
+            in
+            val != null && isDerivation val;
+
           isCoreModule =
             name:
             (!(lib.strings.hasInfix "nvidia" name) || !(lib.strings.hasInfix "linuxPackages" name))
@@ -226,7 +233,7 @@
                             name = subFullName;
                             value = safeGetDrvPath subVal;
                           }
-                        ) (builtins.filter (n: isDerivation moduleVal.${n}) (builtins.attrNames moduleVal))
+                        ) (builtins.filter (n: safeIsDerivation moduleVal n) (builtins.attrNames moduleVal))
                       else
                         [ ]
                     ) (builtins.attrNames variantSet)
