@@ -156,7 +156,6 @@
           linuxPkgs = self.linuxPackages.${system} or { };
           isDerivation = x: builtins.isAttrs x && x ? type && x.type == "derivation";
 
-          # 安全属性读取函数：防御属性读取时的 throw (如 amdgpu-pro)
           safeGetAttr =
             set: attr:
             let
@@ -164,7 +163,6 @@
             in
             if tryEval.success then tryEval.value else null;
 
-          # 安全获取 drvPath：防御 drvPath 求值时的 assert (如 broadcom_sta)
           safeGetDrvPath =
             pkg:
             let
@@ -172,7 +170,6 @@
             in
             if tryEval.success then tryEval.value else "error";
 
-          # 核心模块白名单
           isCoreModule =
             name:
             (!(lib.strings.hasInfix "nvidia" name) || !(lib.strings.hasInfix "linuxPackages" name))
@@ -187,7 +184,12 @@
               || (lib.strings.hasInfix "evdi" name)
             );
 
-          allFlat = builtins.mapAttrs (name: value: safeGetDrvPath value) pkgs;
+          flatPackages = builtins.listToAttrs (
+            map (name: {
+              name = "packages.${system}.${name}";
+              value = safeGetDrvPath pkgs.${name};
+            }) (builtins.attrNames pkgs)
+          );
 
           allNested = builtins.listToAttrs (
             builtins.concatLists (
@@ -202,7 +204,7 @@
                       moduleName:
                       let
                         moduleVal = safeGetAttr variantSet moduleName;
-                        fullName = "linuxPackages.${variantName}.${moduleName}";
+                        fullName = "linuxPackages.${system}.${variantName}.${moduleName}";
                       in
                       if moduleVal == null then
                         [ ]
@@ -218,7 +220,7 @@
                           subName:
                           let
                             subVal = safeGetAttr moduleVal subName;
-                            subFullName = "linuxPackages.${variantName}.${moduleName}.${subName}";
+                            subFullName = "linuxPackages.${system}.${variantName}.${moduleName}.${subName}";
                           in
                           {
                             name = subFullName;
@@ -235,18 +237,15 @@
             )
           );
 
-          allCombined = allFlat // allNested;
+          allCombined = flatPackages // allNested;
 
-          # 剔除无法求值的错误包
           partitioned = lib.filterAttrs (name: value: value != "error") allCombined;
         in
         {
-          # 内核本身
           kernels = lib.filterAttrs (
             name: _value: (lib.strings.hasInfix "linux_cachyos" name) || (lib.strings.hasInfix ".kernel" name)
           ) partitioned;
 
-          # 核心驱动与内核模块
           modules = lib.filterAttrs (name: _value: isCoreModule name) partitioned;
         }
       );
