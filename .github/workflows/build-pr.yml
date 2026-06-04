@@ -121,7 +121,7 @@ jobs:
 
   build-modules:
     needs: [detect, build-kernels]
-    if: !failure() && !cancelled() && needs.detect.outputs.run_build == 'true' && needs.detect.outputs.modules != '[]'
+    if: ${{ !failure() && !cancelled() && needs.detect.outputs.run_build == 'true' && needs.detect.outputs.modules != '[]' }}
     strategy:
       fail-fast: false
       max-parallel: 4
