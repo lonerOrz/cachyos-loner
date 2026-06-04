@@ -74,7 +74,7 @@ jobs:
                   $enabled[] as $var |
                   ($k | contains("-" + $var)) or
                   ($k | contains("cachyos-" + $var)) or
-                  ($var == "gcc" and ($k | contains("nvidia_cachyos") or $k | contains("zfs_cachyos")))
+                  ($var == "gcc" and (($k | contains("nvidia_cachyos")) or ($k | contains("zfs_cachyos"))))
               ))
               | group_by(.value) | map(.[0].key)
             ' -c)
