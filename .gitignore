@@ -3,4 +3,7 @@
 /.nixos-test-history
 /result
 /result-*
-/maintenance/flake.lock
+result/
+.logs
+.envrc
+.direnv/

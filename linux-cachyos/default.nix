@@ -186,7 +186,7 @@ in
     withHDR = false;
   };
 
-  zfs = final.zfs_2_3.overrideAttrs (prevAttrs: {
+  zfs = final.zfs_2_4.overrideAttrs (prevAttrs: {
     src = if isUnsupported then brokenReplacement else gccPackages.zfs_cachyos.src;
     patches = [ ];
     passthru = prevAttrs.passthru // {

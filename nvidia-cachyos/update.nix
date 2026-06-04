@@ -8,6 +8,7 @@
   jq,
   nix,
   moreutils,
+  git,
   variant,
 }:
 
@@ -20,6 +21,7 @@ let
     jq
     moreutils
     nix
+    git
   ];
 
   suffix = if variant == "stable" then "" else "-${variant}";
@@ -35,7 +37,8 @@ writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
     echo "{}" > "$srcJson"
   fi
 
-  pkgbuild=$(curl -fsSL "https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos${suffix}/PKGBUILD")
+  pkgbuild=$(curl -fsSL --connect-timeout 10 --max-time 30 \
+    "https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos${suffix}/PKGBUILD")
   latestVer=$(echo "$pkgbuild" | grep -Po '(?<=_nv_ver=)([^[:space:]]+)')
 
   localVer=$(jq -r '.version // ""' < "$srcJson")
@@ -78,7 +81,10 @@ writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
       '.version = $ver | .hash = $main | .aarch64Hash = $aarch64 | .openHash = $open | .settingsHash = $settings | .persistencedHash = $persistenced' \
       "$srcJson" | sponge "$srcJson"
 
-    echo "Successfully updated $srcJson to $latestVer"
+    git add nvidia-cachyos
+    git commit -m "nvidia_cachyos${suffix}: $localVer -> $latestVer"
+
+    echo "Successfully updated $srcJson to $latestVer and committed"
   else
     echo "NVIDIA CachyOS is already up to date (Version: $localVer)"
   fi

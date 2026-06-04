@@ -6,9 +6,6 @@ on:
 
 jobs:
   bump:
-    strategy:
-      matrix:
-        variant: [gcc, server, hardened, rc, lts]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -31,82 +28,29 @@ jobs:
           git config user.name "cachyos-loner[bot]"
           git config user.email "cachyos-loner[bot]@users.noreply.github.com"
 
-      - name: Bump Kernel
+      - name: Run Centralized Updates Orchestrator
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          VARIANT="${{ matrix.variant }}"
-          BRANCH_NAME="bump-kernel-${VARIANT}"
-
-          git reset --hard origin/main
+          BRANCH_NAME="bump-all-packages"
           git checkout -B "$BRANCH_NAME"
           BASE_SHA=$(git rev-parse HEAD)
 
-          nix run ".#linux_cachyos-${VARIANT}.updateScript" --impure
+          nix run .#update --impure
 
           if [ "$(git rev-parse HEAD)" != "$BASE_SHA" ]; then
-            COMMIT_TITLE=$(git log -1 --pretty=%s)
             git push origin "$BRANCH_NAME" --force
 
             PR_NUMBER=$(gh pr list --head "$BRANCH_NAME" --state open --json number --jq '.[0].number // empty')
 
             if [ -z "$PR_NUMBER" ]; then
               gh pr create \
-                --title "bump(kernel-${VARIANT}): ${COMMIT_TITLE}" \
-                --body "Automated CachyOS kernel update for variant: \`${VARIANT}\`." \
+                --title "bump(cachyos): automated kernels and drivers update" \
+                --body "Automated routine update for all active CachyOS kernels, NVIDIA drivers, and modules." \
                 --base main \
                 --head "$BRANCH_NAME"
-
-              PR_NUMBER=$(gh pr view "$BRANCH_NAME" --json number --jq .number)
-              gh pr merge "$PR_NUMBER" --auto --squash
             else
-              gh pr comment "$PR_NUMBER" --body "This pull request has been updated with new changes: \`${COMMIT_TITLE}\`."
-            fi
-          fi
-
-      - name: Bump NVIDIA Driver
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: |
-          VARIANT="${{ matrix.variant }}"
-          BRANCH_NAME="bump-nvidia-${VARIANT}"
-
-          git reset --hard origin/main
-          git checkout -B "$BRANCH_NAME"
-          BASE_SHA=$(git rev-parse HEAD)
-
-          nix run ".#nvidia_cachyos-${VARIANT}.updateScript" --impure
-
-          if [ -n "$(git status --porcelain)" ]; then
-            SUFFIX=""
-            if [ "$VARIANT" != "gcc" ]; then
-              SUFFIX="-${VARIANT}"
-            fi
-            SRC_JSON="nvidia-cachyos/version${SUFFIX}.json"
-
-            if [ -f "$SRC_JSON" ]; then
-              NEW_NV_VER=$(jq -r '.version // "unknown"' < "$SRC_JSON")
-              git add "$SRC_JSON"
-              git commit -m "bump(nvidia-${VARIANT}): update to ${NEW_NV_VER}"
-            fi
-          fi
-
-          if [ "$(git rev-parse HEAD)" != "$BASE_SHA" ]; then
-            COMMIT_TITLE=$(git log -1 --pretty=%s)
-            git push origin "$BRANCH_NAME" --force
-
-            PR_NUMBER=$(gh pr list --head "$BRANCH_NAME" --state open --json number --jq '.[0].number // empty')
-
-            if [ -z "$PR_NUMBER" ]; then
-              gh pr create \
-                --title "bump(nvidia-${VARIANT}): update to ${NEW_NV_VER}" \
-                --body "Automated NVIDIA CachyOS driver update for variant: \`${VARIANT}\`." \
-                --base main \
-                --head "$BRANCH_NAME"
-
-              PR_NUMBER=$(gh pr view "$BRANCH_NAME" --json number --jq .number)
-              gh pr merge "$PR_NUMBER" --auto --squash
-            else
-              gh pr comment "$PR_NUMBER" --body "This pull request has been updated with new changes: \`${COMMIT_TITLE}\`."
+              LAST_COMMIT=$(git log -1 --pretty=%s)
+              gh pr comment "$PR_NUMBER" --body "This pull request has been updated with new changes: \`${LAST_COMMIT}\`."
             fi
           fi

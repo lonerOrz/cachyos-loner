@@ -22,29 +22,75 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
+      kernels_matrix: ${{ steps.matrix.outputs.kernels }}
+      modules_matrix: ${{ steps.matrix.outputs.modules }}
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
+
       - id: matrix
         shell: bash
         run: |
-          variants=()
-          [[ "${{ inputs.gcc }}" == "true" ]] && variants+=('"gcc"')
-          [[ "${{ inputs.lto }}" == "true" ]] && variants+=('"lto"')
-          [[ "${{ inputs.server }}" == "true" ]] && variants+=('"server"')
-          [[ "${{ inputs.hardened }}" == "true" ]] && variants+=('"hardened"')
-          [[ "${{ inputs.lts }}" == "true" ]] && variants+=('"lts"')
-          [[ "${{ inputs.rc }}" == "true" ]] && variants+=('"rc"')
-          printf 'matrix=[%s]\n' "$(IFS=,; echo "${variants[*]}")" >> "$GITHUB_OUTPUT"
+          nix eval .#needCacheDrvs.x86_64-linux --json > "$RUNNER_TEMP/need_cache.json"
 
-  build:
+          ENABLED_VARIANTS=()
+          [[ "${{ inputs.gcc }}" == "true" ]] && ENABLED_VARIANTS+=("gcc")
+          [[ "${{ inputs.lto }}" == "true" ]] && ENABLED_VARIANTS+=("lto")
+          [[ "${{ inputs.server }}" == "true" ]] && ENABLED_VARIANTS+=("server")
+          [[ "${{ inputs.hardened }}" == "true" ]] && ENABLED_VARIANTS+=("hardened")
+          [[ "${{ inputs.lts }}" == "true" ]] && ENABLED_VARIANTS+=("lts")
+          [[ "${{ inputs.rc }}" == "true" ]] && ENABLED_VARIANTS+=("rc")
+
+          ENABLED_JSON=$(jq -n --args '$ARGS.positional' -- "${ENABLED_VARIANTS[@]}" -c)
+
+          KERNELS=$(jq -n \
+            --argjson all "$(cat "$RUNNER_TEMP/need_cache.json")" \
+            --argjson enabled "$ENABLED_JSON" \
+            '
+              $all.kernels | to_entries
+              | map(select(
+                  .key as $k |
+                  $enabled[] as $var |
+                  ($k | contains("-" + $var)) or
+                  ($k | contains("cachyos-" + $var)) or
+                  ($var == "gcc" and $k == "linux_cachyos")
+              ))
+              | group_by(.value) | map(.[0].key)
+            ' -c)
+
+          MODULES=$(jq -n \
+            --argjson all "$(cat "$RUNNER_TEMP/need_cache.json")" \
+            --argjson enabled "$ENABLED_JSON" \
+            '
+              $all.modules | to_entries
+              | map(select(
+                  .key as $k |
+                  $enabled[] as $var |
+                  ($k | contains("-" + $var)) or
+                  ($k | contains("cachyos-" + $var)) or
+                  ($var == "gcc" and ($k == "nvidia_cachyos" or $k == "zfs_cachyos"))
+              ))
+              | group_by(.value) | map(.[0].key)
+            ' -c)
+
+          printf 'kernels=%s\n' "$KERNELS" >> "$GITHUB_OUTPUT"
+          printf 'modules=%s\n' "$MODULES" >> "$GITHUB_OUTPUT"
+
+  build-kernels:
     needs: prepare
+    if: needs.prepare.outputs.kernels_matrix != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       max-parallel: 3
       matrix:
-        variant: ${{ fromJson(needs.prepare.outputs.matrix) }}
-
+        package: ${{ fromJson(needs.prepare.outputs.kernels_matrix) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -70,16 +116,50 @@ jobs:
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Build Targets
-        run: |
-          nix build .#"linux_cachyos-${{ matrix.variant }}" -L
-          nix build .#"nvidia_cachyos-${{ matrix.variant }}" -L
+      - name: Build Kernel
+        run: nix build .#${{ matrix.package }} -L --impure
+
+  build-modules:
+    needs: [prepare, build-kernels]
+    if: needs.prepare.outputs.modules_matrix != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        package: ${{ fromJson(needs.prepare.outputs.modules_matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+
+      - name: Add Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 20
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
+
+      - name: Setup noci cache
+        uses: lonerOrz/noci/action@main
+        with:
+          repo: ${{ github.repository }}
+          signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Build Module
+        run: nix build .#${{ matrix.package }} -L --impure
 
   cleanup:
-    needs: build
-    if: ${{ github.event.inputs.run_gc == 'true' || github.event_name == 'push' }}
+    needs: [build-kernels, build-modules]
+    if: always() && (github.event.inputs.run_gc == 'true' || github.event_name == 'push')
     runs-on: ubuntu-latest
-
     steps:
       - name: Install Nix
         uses: cachix/install-nix-action@v31
@@ -92,7 +172,6 @@ jobs:
         run: |
           nix run github:lonerOrz/noci -- gc \
             --repo ${{ github.repository }} \
-            --max-size 10GB \
             --grace-period 168h \
             --dry-run=false \
             --physical-sweep
