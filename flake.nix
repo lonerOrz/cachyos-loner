@@ -142,6 +142,7 @@
         in
         {
           cachyos-gcc = overlayPkgs.linuxPackages_cachyos-gcc;
+          cachyos-lto = overlayPkgs.linuxPackages_cachyos-lto;
           cachyos-server = overlayPkgs.linuxPackages_cachyos-server;
           cachyos-hardened = overlayPkgs.linuxPackages_cachyos-hardened;
           cachyos-rc = overlayPkgs.linuxPackages_cachyos-rc;

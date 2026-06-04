@@ -36,19 +36,19 @@ with prevModules;
           substituteInPlace Makefile \
             --replace-fail 'discarded-qualifiers' 'ignored-qualifiers'
         '';
-        # Don't build userspace stuff
         postBuild = "";
         installPhase =
           builtins.replaceStrings [ "install -Dm755 library/libevdi.so" ] [ "#" ]
             prevAttrs.installPhase;
       });
+
   nvidia_x11 = fixNoVideo nvidia_x11;
   nvidia_x11_beta = fixNoVideo nvidia_x11_beta;
   nvidia_x11_latest = fixNoVideo nvidia_x11_latest;
   nvidia_x11_legacy535 = fixNoVideo nvidia_x11_legacy535;
-  nvidia_dc_535 = markBroken nvidia_dc_535;
-  nvidia_dc_565 = markBroken nvidia_dc_565;
   nvidia_x11_legacy470 = markBroken nvidia_x11_legacy470;
+  nvidia_dc = markBroken nvidia_dc;
+
   nvidiaPackages = nvidiaPackages.extend (
     _finalNV: prevNV: with prevNV; {
       production = fixNoVideo production;
@@ -56,14 +56,17 @@ with prevModules;
       beta = fixNoVideo beta;
       vulkan_beta = fixNoVideo vulkan_beta;
       latest = fixNoVideo latest;
+      legacy_580 = fixNoVideo legacy_580;
       legacy_535 = fixNoVideo legacy_535;
-      dc_535 = markBroken dc_535;
-      dc_565 = markBroken dc_565;
       legacy_470 = markBroken legacy_470;
+      dc_590 = markBroken dc_590;
+      dc_580 = markBroken dc_580;
+      dc_570 = markBroken dc_570;
     }
   );
-  # perf needs systemtap fixed first
+
   perf = markBroken perf;
+
   virtualbox =
     multiOverride virtualbox
       {
@@ -72,9 +75,7 @@ with prevModules;
       (prevAttrs: {
         makeFlags = prevAttrs.makeFlags ++ kernel.commonMakeFlags;
       });
-  xpadneo = xpadneo.override {
-    inherit (final) bluez;
-  };
+
   zenpower = zenpower.overrideAttrs (prevAttrs: {
     makeFlags =
       prevAttrs.makeFlags

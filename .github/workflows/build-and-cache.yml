@@ -87,10 +87,12 @@ jobs:
                   ($k | contains("-" + $var)) or
                   ($k | contains("cachyos-" + $var)) or
                   ($var == "gcc" and (
-                    ($k | split(".") | last) as $last |
-                    $last == "nvidia_cachyos" or
-                    $last == "nvidia_cachyos-open" or
-                    $last == "zfs_cachyos"
+                    ($k | split(".")) as $parts |
+                    $parts[0] == "packages" and (
+                      $parts[2] == "nvidia_cachyos" or
+                      $parts[2] == "nvidia_cachyos-open" or
+                      $parts[2] == "zfs_cachyos"
+                    )
                   ))
               ))
               | group_by(.value) | map(.[0].key)
