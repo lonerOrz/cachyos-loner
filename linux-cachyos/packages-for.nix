@@ -124,7 +124,7 @@ let
           kernelMinSupportedMajorMinor = "1.0";
           kernelMaxSupportedMajorMinor = "99.99";
           enableUnsupportedExperimentalKernel = true;
-          inherit (prevAttrs.zfs_2_3) version;
+          inherit (prevAttrs.zfs_2_4) version;
           tests = { };
           maintainers = with lib.maintainers; [
             pedrohlc
@@ -148,7 +148,13 @@ let
             suffix = lib.strings.removePrefix "linux-cachyos" taste;
             attrName = "nvidia_cachyos${suffix}";
           in
-          (builtins.tryEval inputs.final.${attrName}).value or null;
+          if inputs.final ? ${attrName} then
+            let
+              tryEval = builtins.tryEval inputs.final.${attrName};
+            in
+            if tryEval.success then tryEval.value else null
+          else
+            null;
       }
     );
     inherit cachyOverride;

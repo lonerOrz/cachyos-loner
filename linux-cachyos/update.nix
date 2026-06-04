@@ -76,7 +76,7 @@ writeShellScriptBin "update-cachyos" ''
 
   srcUrl="https://github.com/CachyOS/linux/releases/download/''${srcTag}/''${srcTag}.tar.gz"
 
-  if [[ "''${"FORCE:-0"}" != "1" && "$localVer" == "$latestVer" && "$localTagrel" == "$latestTagrel" ]]; then
+  if [[ "${"FORCE:-0"}" != "1" && "$localVer" == "$latestVer" && "$localTagrel" == "$latestTagrel" ]]; then
     echo "Already up to date: $latestVer-$latestTagrel"
     exit 0
   fi
