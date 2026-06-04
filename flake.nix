@@ -185,12 +185,6 @@
               targetKeywords = [
                 "nvidia"
                 "zfs_cachyos"
-                "xone"
-                "xpadneo"
-                "zenpower"
-                "v4l2loopback"
-                "rtl88"
-                "evdi"
               ];
               hasTargetKeyword = lib.any (keyword: lib.strings.hasInfix keyword name) targetKeywords;
             in
