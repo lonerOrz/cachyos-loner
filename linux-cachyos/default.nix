@@ -22,6 +22,12 @@ let
     useLTO = "thin";
     stdenv = final.clangStdenv;
 
+    extraMakeFlags = [
+      "LD=${final.lib.getExe' final.pkgs.llvmPackages.lld "ld.lld"}"
+      "AR=${final.lib.getExe' final.pkgs.llvmPackages.llvm "llvm-ar"}"
+      "NM=${final.lib.getExe' final.pkgs.llvmPackages.llvm "llvm-nm"}"
+    ];
+
     packagesExtend = import ./lib/llvm-module-overlay.nix inputs;
 
     zfsOverride = {
