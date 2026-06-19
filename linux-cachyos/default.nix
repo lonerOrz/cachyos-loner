@@ -116,13 +116,6 @@ let
     prev // { recurseForDerivations = false; };
 in
 {
-  inherit
-    mainVersions
-    rcVersions
-    hardenedVersions
-    mkCachyKernel
-    ;
-
   cachyos-gcc = gccKernel;
 
   cachyos-sched-ext = throw "\"sched-ext\" patches were merged with \"cachyos\" flavor.";

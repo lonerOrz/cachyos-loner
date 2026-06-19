@@ -38,8 +38,6 @@ rec {
 
   shorter = builtins.substring 0 7;
 
-  recurseForDerivations = false;
-
   # Helps when dropping flags.
   removeByPrefix =
     prefix:

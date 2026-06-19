@@ -95,7 +95,7 @@ let
   kconfigToNix = inputs.final.callPackage ./lib/kconfig-to-nix.nix {
     configfile = preparedConfigfile;
   };
-  linuxConfigTransfomed = import configPath;
+  linuxConfigTransformed = import configPath;
 
   commonMakeFlagsBintools =
     import "${inputs.flakes.nixpkgs}/pkgs/os-specific/linux/kernel/common-flags.nix"
@@ -134,7 +134,7 @@ let
       ;
     kernelPatches = [ ];
     configfile = preparedConfigfile;
-    config = linuxConfigTransfomed;
+    config = linuxConfigTransformed;
     # For tests
     inherit (inputs) flakes final;
     kernelPackages = basePackages;
@@ -227,14 +227,14 @@ let
     "system76-scheduler"
     "perf"
   ];
-  packagesWithoutUpdateScript = dropAttrsUpdateScript packagesWithRemovals;
-  packagesWithRightPlatforms = utils.setAttrsPlatforms supportedPlatforms packagesWithoutUpdateScript;
-
   supportedPlatforms = [
     (with lib.systems.inspect.patterns; isx86_64 // isLinux)
     (with lib.systems.inspect.patterns; isx86 // isLinux)
     "x86_64-linux"
   ];
+
+  packagesWithoutUpdateScript = dropAttrsUpdateScript packagesWithRemovals;
+  packagesWithRightPlatforms = utils.setAttrsPlatforms supportedPlatforms packagesWithoutUpdateScript;
 
   versionSuffix = "+C${utils.shorter versions.config.rev}+P${utils.shorter versions.patches.rev}";
 in
