@@ -195,7 +195,7 @@
             variantName: moduleName:
             let
               moduleVal = safeGetAttr linuxPkgs.${variantName} moduleName;
-              fullName = "linuxPackages.${system}.${variantName}.${moduleName}";
+              fullName = "legacyPackages.${system}.${variantName}.${moduleName}";
             in
             if moduleVal == null then
               [ ]
