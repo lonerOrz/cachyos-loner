@@ -132,7 +132,7 @@
         }
       );
 
-      linuxPackages = forAllSystems (
+      legacyPackages = forAllSystems (
         system:
         let
           overlayPkgs = utils.applyOverlay {
@@ -141,12 +141,13 @@
           };
         in
         {
-          cachyos-gcc = overlayPkgs.linuxPackages_cachyos-gcc;
-          cachyos-lto = overlayPkgs.linuxPackages_cachyos-lto;
-          cachyos-server = overlayPkgs.linuxPackages_cachyos-server;
-          cachyos-hardened = overlayPkgs.linuxPackages_cachyos-hardened;
-          cachyos-rc = overlayPkgs.linuxPackages_cachyos-rc;
-          cachyos-lts = overlayPkgs.linuxPackages_cachyos-lts;
+          linuxPackages_cachyos-gcc = overlayPkgs.linuxPackages_cachyos-gcc;
+          linuxPackages_cachyos-lto = overlayPkgs.linuxPackages_cachyos-lto;
+          linuxPackages_cachyos-lto-znver4 = overlayPkgs.linuxPackages_cachyos-lto-znver4;
+          linuxPackages_cachyos-server = overlayPkgs.linuxPackages_cachyos-server;
+          linuxPackages_cachyos-hardened = overlayPkgs.linuxPackages_cachyos-hardened;
+          linuxPackages_cachyos-rc = overlayPkgs.linuxPackages_cachyos-rc;
+          linuxPackages_cachyos-lts = overlayPkgs.linuxPackages_cachyos-lts;
         }
       );
 
@@ -154,7 +155,7 @@
         system:
         let
           pkgs = self.packages.${system};
-          linuxPkgs = self.linuxPackages.${system} or { };
+          linuxPkgs = self.legacyPackages.${system} or { };
           isDerivation = x: builtins.isAttrs x && x ? type && x.type == "derivation";
 
           safeGetAttr =

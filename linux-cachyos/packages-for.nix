@@ -7,34 +7,68 @@
   linuxPackages,
   linuxPackagesFor,
   fetchFromGitHub,
+  utils,
   lib,
   buildPackages,
+  llvmPackages,
+  rustc,
+  rust-bindgen,
+  rustPlatform,
   ogKernelConfigfile ? linuxPackages.kernel.passthru.configfile,
-  updateConfig ? null,
+  withUpdateScript ? null,
   packagesExtend ? null,
   cachyOverride,
   extraMakeFlags ? [ ],
   zfsOverride ? { },
-  # those are set in their PKGBUILDs
-  basicCachy ? true,
-  mArch ? null,
-  cpuSched ? "cachyos",
-  useLTO ? "none",
-  ticksHz ? 500,
-  tickRate ? "full",
-  preempt ? "full",
-  hugePages ? "always",
+  cachyVars,
+  withPrivateHDR ? false,
   withDAMON ? false,
   withNTSync ? true,
-  withHDR ? true,
   withoutDebug ? false,
   description ? "Linux EEVDF-BORE scheduler Kernel by CachyOS with other patches and improvements",
-  # For flakes
   inputs,
 }:
 
 let
-  utils = import ../utils.nix { inherit lib; };
+  yesOrNo =
+    str:
+    if str == "yes" then
+      true
+    else if str == "no" then
+      false
+    else
+      throw "Unsupported yes/no value";
+
+  nullIfEmpty = str: if str == "" then null else str;
+
+  cachyConfig = {
+    inherit
+      taste
+      versions
+      cachyVars
+      withPrivateHDR
+      withDAMON
+      withNTSync
+      withoutDebug
+      description
+      withUpdateScript
+      ;
+
+    basicCachy = yesOrNo cachyVars."_cachy_config";
+    mArch = nullIfEmpty cachyVars."_processor_opt";
+    cpuSched = cachyVars."_cpusched";
+    ccHarder = yesOrNo cachyVars."_cc_harder";
+    perGov = yesOrNo cachyVars."_per_gov";
+    tcpBBR3 = yesOrNo cachyVars."_tcp_bbr3";
+    useLTO = cachyVars."_use_llvm_lto";
+    useKCFI = yesOrNo cachyVars."_use_kcfi";
+    ticksHz = lib.strings.toInt cachyVars."_HZ_ticks";
+    tickRate = cachyVars."_tickrate";
+    preempt = cachyVars."_preempt";
+    hugePages = cachyVars."_hugepage";
+    autoFDO = yesOrNo (cachyVars."_autofdo" or "no");
+    propeller = yesOrNo (cachyVars."_propeller" or "no");
+  };
 
   dropAttrsUpdateScript = builtins.mapAttrs (
     _k: v:
@@ -46,27 +80,10 @@ let
       v
   );
 
-  cachyConfig = {
-    inherit
-      taste
-      versions
-      basicCachy
-      mArch
-      cpuSched
-      useLTO
-      ticksHz
-      tickRate
-      preempt
-      hugePages
-      withDAMON
-      withNTSync
-      withHDR
-      withoutDebug
-      description
-      updateConfig
-      ;
-  };
-
+  # The three phases of the config
+  # - First we apply the changes from their PKGBUILD using kconfig;
+  # - Then we NIXify it (in the update-script);
+  # - Last state is importing the NIXified version for building.
   preparedConfigfile = callPackage ./prepare.nix {
     inherit
       cachyConfig
@@ -76,42 +93,60 @@ let
       commonMakeFlags
       ;
   };
-  kconfigToNix = callPackage ./lib/kconfig-to-nix.nix {
+  kconfigToNix = inputs.final.callPackage ./lib/kconfig-to-nix.nix {
     configfile = preparedConfigfile;
   };
   linuxConfigTransfomed = import configPath;
 
+  updaterScript =
+    if withUpdateScript != null then
+      inputs.final.callPackage ./update.nix { inherit (cachyConfig) withUpdateScript; }
+    else
+      null;
+
   kernel = callPackage ./kernel.nix {
-    inherit cachyConfig stdenv kconfigToNix;
+    inherit
+      cachyConfig
+      stdenv
+      kconfigToNix
+      commonMakeFlags
+      updaterScript
+      utils
+      ;
     kernelPatches = [ ];
     configfile = preparedConfigfile;
     config = linuxConfigTransfomed;
     # For tests
     inherit (inputs) flakes final;
     kernelPackages = basePackages;
-    # kernelPackages = packagesWithRightPlatforms;
   };
 
-  kernelWithUpdateScript = kernel.overrideAttrs (prevAttrs: {
-    passthru = prevAttrs.passthru // {
-      updateScript =
-        if updateConfig != null then
-          inputs.final.callPackage ./update.nix { inherit updateConfig; }
-        else
-          inputs.final.writeShellScriptBin "update-cachyos" ''
-            echo "${taste}: No independent updateScript. Please run the updateScript for linux_cachyos-gcc instead."
-          '';
-    };
-  });
+  commonMakeFlagsBintools =
+    import "${inputs.flakes.nixpkgs}/pkgs/os-specific/linux/kernel/common-flags.nix"
+      {
+        inherit
+          lib
+          stdenv
+          buildPackages
+          ;
+        extraMakeFlags = if cachyConfig.useLTO == "none" then extraMakeFlags else [ ];
+      };
 
-  commonMakeFlags = import "${inputs.flakes.nixpkgs}/pkgs/os-specific/linux/kernel/common-flags.nix" {
-    inherit
-      lib
-      stdenv
-      buildPackages
-      extraMakeFlags
-      ;
-  };
+  commonMakeFlags =
+    if cachyConfig.useLTO != "none" then
+      lib.trivial.pipe commonMakeFlagsBintools [
+        (utils.replaceStartingWith "LD=" (lib.getExe' llvmPackages.lld "ld.lld"))
+        (utils.replaceStartingWith "AR=" (lib.getExe' llvmPackages.llvm "llvm-ar"))
+        (utils.replaceStartingWith "NM=" (lib.getExe' llvmPackages.llvm "llvm-nm"))
+      ]
+      ++ [
+        "RUSTC=${lib.getExe' rustc "rustc"}"
+        "BINDGEN=${lib.getExe rust-bindgen}"
+        "RUST_LIB_SRC=${rustPlatform.rustLibSrc}"
+      ]
+      ++ extraMakeFlags
+    else
+      commonMakeFlagsBintools;
 
   # CachyOS repeating stuff.
   addOurs = finalAttrs: prevAttrs: {
@@ -160,18 +195,26 @@ let
     inherit cachyOverride;
   };
 
-  basePackages = linuxPackagesFor kernelWithUpdateScript;
+  llvmModuleOverlay = import ./lib/llvm-module-overlay.nix inputs;
+
+  basePackages = linuxPackagesFor kernel;
   packagesWithOurs = basePackages.extend addOurs;
+  packagesWithLtoModuleOverlay =
+    if cachyConfig.useLTO != "none" then
+      packagesWithOurs.extend (llvmModuleOverlay kernel)
+    else
+      packagesWithOurs;
   packagesWithExtend =
     if packagesExtend == null then
-      packagesWithOurs
+      packagesWithLtoModuleOverlay
     else
-      packagesWithOurs.extend (packagesExtend kernel);
+      packagesWithLtoModuleOverlay.extend (packagesExtend kernel);
   packagesWithRemovals = removeAttrs packagesWithExtend [
     "zfs"
     "zfs_2_1"
     "zfs_2_2"
     "zfs_2_3"
+    "zfs_2_4"
     "zfs_unstable"
     "lkrg"
     "drbd"

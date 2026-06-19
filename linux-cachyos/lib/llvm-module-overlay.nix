@@ -6,7 +6,7 @@ kernel: _finalModules: prevModules:
 
 let
   projectUtils = import ../../utils.nix { lib = final.lib; };
-  inherit (projectUtils) markBroken overrideFull multiOverride;
+  inherit (projectUtils) markBroken overrideFull multiOverride removeByPrefix;
 
   fixNoVideo =
     prevDrv:
@@ -18,6 +18,10 @@ let
 in
 with prevModules;
 {
+  cpupower = prevModules.cpupower.override {
+    inherit (final) pciutils gettext which;
+  };
+
   evdi =
     multiOverride prevModules.evdi
       {
@@ -36,6 +40,7 @@ with prevModules;
           substituteInPlace Makefile \
             --replace-fail 'discarded-qualifiers' 'ignored-qualifiers'
         '';
+        # Don't build userspace stuff
         postBuild = "";
         installPhase =
           builtins.replaceStrings [ "install -Dm755 library/libevdi.so" ] [ "#" ]
@@ -53,11 +58,11 @@ with prevModules;
     _finalNV: prevNV: with prevNV; {
       production = fixNoVideo production;
       stable = fixNoVideo stable;
-      beta = fixNoVideo beta;
       vulkan_beta = fixNoVideo vulkan_beta;
+      cachyos = final.nvidia_cachyos;
       latest = fixNoVideo latest;
-      legacy_580 = fixNoVideo legacy_580;
       legacy_535 = fixNoVideo legacy_535;
+      legacy_580 = fixNoVideo legacy_580;
       legacy_470 = markBroken legacy_470;
       dc_590 = markBroken dc_590;
       dc_580 = markBroken dc_580;
@@ -65,7 +70,12 @@ with prevModules;
     }
   );
 
+  # perf needs systemtap fixed first
   perf = markBroken perf;
+
+  ryzen-smu = prevModules.ryzen-smu.overrideAttrs (prevAttrs: {
+    makeFlags = (removeByPrefix "CC=" prevAttrs.makeFlags) ++ kernel.commonMakeFlags;
+  });
 
   virtualbox =
     multiOverride virtualbox

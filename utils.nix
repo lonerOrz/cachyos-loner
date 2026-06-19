@@ -40,6 +40,24 @@ rec {
 
   recurseForDerivations = false;
 
+  # Single-value optional attr
+  optionalAttr =
+    key: pred: value:
+    if pred then { "${key}" = value; } else { };
+
+  # Helps when dropping flags.
+  removeByPrefix =
+    prefix:
+    let
+      prefixLen = builtins.stringLength prefix;
+    in
+    builtins.filter (s: builtins.substring 0 prefixLen s != prefix);
+
+  # Helps updating flags
+  replaceStartingWith =
+    prefix: newSuffix:
+    builtins.map (x: if lib.strings.hasPrefix prefix x then prefix + newSuffix else x);
+
   applyOverlay =
     {
       replace ? false,
