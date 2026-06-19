@@ -114,8 +114,7 @@ writeShellScriptBin "update-cachyos" ''
     --arg patchesRev "$patchesRev" \
     --arg patchesHash "$patchesHash" \
     --arg zfsRev "$zfsRev" \
-    --arg zfsHash "$zfsHash" \
-    '
+    --arg zfsHash "$zfsHash" '
       .linux.version = $latestVer |
       .linux.hash = $latestHash |
       .linux.tagrel = $latestTagrel |

@@ -38,7 +38,18 @@ rec {
 
   shorter = builtins.substring 0 7;
 
-  recurseForDerivations = false;
+  # Helps when dropping flags.
+  removeByPrefix =
+    prefix:
+    let
+      prefixLen = builtins.stringLength prefix;
+    in
+    builtins.filter (s: builtins.substring 0 prefixLen s != prefix);
+
+  # Helps updating flags
+  replaceStartingWith =
+    prefix: newSuffix:
+    builtins.map (x: if lib.strings.hasPrefix prefix x then prefix + newSuffix else x);
 
   applyOverlay =
     {
