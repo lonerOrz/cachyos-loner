@@ -15,7 +15,7 @@
   rust-bindgen,
   rustPlatform,
   ogKernelConfigfile ? linuxPackages.kernel.passthru.configfile,
-  withUpdateScript ? null,
+  updateConfig ? null,
   packagesExtend ? null,
   cachyOverride,
   extraMakeFlags ? [ ],
@@ -51,7 +51,6 @@ let
       withNTSync
       withoutDebug
       description
-      withUpdateScript
       ;
 
     basicCachy = yesOrNo cachyVars."_cachy_config";
@@ -98,29 +97,6 @@ let
   };
   linuxConfigTransfomed = import configPath;
 
-  updaterScript =
-    if withUpdateScript != null then
-      inputs.final.callPackage ./update.nix { inherit (cachyConfig) withUpdateScript; }
-    else
-      null;
-
-  kernel = callPackage ./kernel.nix {
-    inherit
-      cachyConfig
-      stdenv
-      kconfigToNix
-      commonMakeFlags
-      updaterScript
-      utils
-      ;
-    kernelPatches = [ ];
-    configfile = preparedConfigfile;
-    config = linuxConfigTransfomed;
-    # For tests
-    inherit (inputs) flakes final;
-    kernelPackages = basePackages;
-  };
-
   commonMakeFlagsBintools =
     import "${inputs.flakes.nixpkgs}/pkgs/os-specific/linux/kernel/common-flags.nix"
       {
@@ -147,6 +123,34 @@ let
       ++ extraMakeFlags
     else
       commonMakeFlagsBintools;
+
+  kernel = callPackage ./kernel.nix {
+    inherit
+      cachyConfig
+      stdenv
+      kconfigToNix
+      commonMakeFlags
+      utils
+      ;
+    kernelPatches = [ ];
+    configfile = preparedConfigfile;
+    config = linuxConfigTransfomed;
+    # For tests
+    inherit (inputs) flakes final;
+    kernelPackages = basePackages;
+  };
+
+  kernelWithUpdateScript = kernel.overrideAttrs (prevAttrs: {
+    passthru = prevAttrs.passthru // {
+      updateScript =
+        if updateConfig != null then
+          inputs.final.callPackage ./update.nix { inherit updateConfig; }
+        else
+          inputs.final.writeShellScriptBin "update-cachyos" ''
+            echo "${taste}: No independent updateScript. Please run the updateScript for linux_cachyos-gcc instead."
+          '';
+    };
+  });
 
   # CachyOS repeating stuff.
   addOurs = finalAttrs: prevAttrs: {
@@ -197,7 +201,7 @@ let
 
   llvmModuleOverlay = import ./lib/llvm-module-overlay.nix inputs;
 
-  basePackages = linuxPackagesFor kernel;
+  basePackages = linuxPackagesFor kernelWithUpdateScript;
   packagesWithOurs = basePackages.extend addOurs;
   packagesWithLtoModuleOverlay =
     if cachyConfig.useLTO != "none" then

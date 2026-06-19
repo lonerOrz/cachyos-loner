@@ -101,8 +101,14 @@ let
       "_use_llvm_lto" = "none";
     };
 
-    # since all flavors use the same versions.json, we just need the updateScript in one of them
-    withUpdateScript = "stable";
+    updateConfig = {
+      versionsFile = "versions.json";
+      suffix = "";
+      flavors = [
+        "-gcc"
+        "-lto"
+      ];
+    };
   };
 
   preventBuildingKernelModules =
@@ -127,24 +133,31 @@ in
     cachyVars = ltsVars;
 
     versions = ltsVersions;
-    withUpdateScript = "lts";
+    updateConfig = {
+      versionsFile = "versions-lts.json";
+      suffix = "-lts";
+      flavors = [ "-lts" ];
+    };
 
     packagesExtend = preventBuildingKernelModules;
   };
 
-  cachyos-rc = mkCachyKernel (
-    ltoKernelAttrs
-    // {
-      taste = "linux-cachyos-rc";
-      configPath = ./config-nix/cachyos-rc.x86_64-linux.nix;
-      cachyVars = rcVars;
+  cachyos-rc = mkCachyKernel {
+    taste = "linux-cachyos-rc";
+    configPath = ./config-nix/cachyos-rc.x86_64-linux.nix;
+    cachyVars = rcVars // {
+      "_use_llvm_lto" = "none";
+    };
 
-      versions = rcVersions;
-      withUpdateScript = "rc";
+    versions = rcVersions;
+    updateConfig = {
+      versionsFile = "versions-rc.json";
+      suffix = "-rc";
+      flavors = [ "-rc" ];
+    };
 
-      packagesExtend = preventBuildingKernelModules;
-    }
-  );
+    packagesExtend = preventBuildingKernelModules;
+  };
 
   cachyos-lto = mkCachyKernel ltoKernelAttrs;
 
@@ -163,10 +176,17 @@ in
   cachyos-server = mkCachyKernel {
     taste = "linux-cachyos-server";
     configPath = ./config-nix/cachyos-server.x86_64-linux.nix;
-    cachyVars = serverVars;
+    cachyVars = serverVars // {
+      "_preempt" = "server";
+      "_per_gov" = "yes";
+    };
 
     versions = serverVersions;
-    withUpdateScript = "server";
+    updateConfig = {
+      versionsFile = "versions-server.json";
+      suffix = "-server";
+      flavors = [ "-server" ];
+    };
 
     withDAMON = true;
     withNTSync = false;
@@ -183,7 +203,11 @@ in
     cachyVars = hardenedVars;
 
     versions = hardenedVersions;
-    withUpdateScript = "hardened";
+    updateConfig = {
+      versionsFile = "versions-hardened.json";
+      suffix = "-hardened";
+      flavors = [ "-hardened" ];
+    };
 
     withNTSync = false;
     withPrivateHDR = false;

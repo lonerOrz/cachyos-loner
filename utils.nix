@@ -40,11 +40,6 @@ rec {
 
   recurseForDerivations = false;
 
-  # Single-value optional attr
-  optionalAttr =
-    key: pred: value:
-    if pred then { "${key}" = value; } else { };
-
   # Helps when dropping flags.
   removeByPrefix =
     prefix:

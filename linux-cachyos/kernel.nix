@@ -3,7 +3,6 @@
   kconfigToNix,
   config,
   configfile,
-  updaterScript ? null,
   utils,
   lib,
   linuxManualConfig,
@@ -65,7 +64,6 @@ in
         isZen = true;
         isHardened = cachyConfig.cpuSched == "hardened";
         isLibre = false;
-        updateScript = null;
         tests = (prevAttrs.passthru.tests or { }) // {
           plymouth = import ./test.nix {
             inherit kernelPackages;
@@ -73,6 +71,5 @@ in
             rootFlake = flakes.self;
           } final;
         };
-      }
-      // utils.optionalAttr "updateScript" (updaterScript != null) updaterScript;
+      };
   })

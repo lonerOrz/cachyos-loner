@@ -1,5 +1,5 @@
 {
-  writeShellScript,
+  writeShellScriptBin,
   lib,
   coreutils,
   findutils,
@@ -12,10 +12,13 @@
   nix,
   nix-prefetch-git,
   moreutils,
-  withUpdateScript,
+  updateConfig,
 }:
 
 let
+  inherit (updateConfig) versionsFile suffix flavors;
+  flavorsStr = lib.concatStringsSep " " flavors;
+
   path = lib.makeBinPath [
     coreutils
     curl
@@ -29,46 +32,9 @@ let
     nix-prefetch-git
     nix
   ];
-
-  variants = {
-    stable = {
-      versionsFile = "versions.json";
-      suffix = "";
-      mainFlavor = "-lto";
-      flavors = [
-        "-gcc"
-        "-lto"
-      ];
-    };
-    hardened = {
-      versionsFile = "versions-hardened.json";
-      suffix = "-hardened";
-      mainFlavor = "-hardened";
-    };
-    lts = {
-      versionsFile = "versions-lts.json";
-      suffix = "-lts";
-      mainFlavor = "-lts";
-    };
-    rc = {
-      versionsFile = "versions-rc.json";
-      suffix = "-rc";
-      mainFlavor = "-rc";
-    };
-    server = {
-      versionsFile = "versions-server.json";
-      suffix = "-server";
-      mainFlavor = "-server";
-    };
-  };
-
-  major = variants.${withUpdateScript} or (throw "Unsupported update-script for linux-cachyos");
-
 in
 
-with major;
-
-writeShellScript "update-cachyos" ''
+writeShellScriptBin "update-cachyos" ''
   set -euo pipefail
   PATH=${path}
 
@@ -78,89 +44,36 @@ writeShellScript "update-cachyos" ''
   localTagrel=$(jq -r '.linux.tagrel // -1' < "$srcJson")
 
   fetch_pkgbuild() {
-    curl -fsSL \
+    curl -fsSL --connect-timeout 10 --max-time 30 \
       "https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos${suffix}/PKGBUILD"
   }
 
-  parse_version() {
+  parse_all() {
     awk -F= '
-      /^[[:space:]]*_major[[:space:]]*=/ {
-        gsub(/[[:space:]]/, "", $2)
-        major=$2
-      }
-      /^[[:space:]]*_minor[[:space:]]*=/ {
-        gsub(/[[:space:]]/, "", $2)
-        minor=$2
-      }
-      /^[[:space:]]*_rcver[[:space:]]*=/ {
-        gsub(/[[:space:]]/, "", $2)
-        rcver=$2
-      }
-      /^[[:space:]]*_ltsver[[:space:]]*=/ {
-        gsub(/[[:space:]]/, "", $2)
-        ltsver=$2
-      }
+      /^[[:space:]]*_major[[:space:]]*=/ { gsub(/[[:space:]]/, "", $2); major=$2 }
+      /^[[:space:]]*_minor[[:space:]]*=/ { gsub(/[[:space:]]/, "", $2); minor=$2 }
+      /^[[:space:]]*_rcver[[:space:]]*=/  { gsub(/[[:space:]]/, "", $2); rcver=$2 }
+      /^[[:space:]]*_ltsver[[:space:]]*=/ { gsub(/[[:space:]]/, "", $2); ltsver=$2 }
+      /^[[:space:]]*_tagrel[[:space:]]*=/ { gsub(/[[:space:]]/, "", $2); tagrel=$2 }
       END {
         if (rcver != "") {
-          print major "-" rcver
+          version = major "-" rcver
+          srctag = "cachyos-" major "-" rcver "-" tagrel
         } else if (ltsver != "") {
-          print major "." ltsver
+          version = major "." ltsver
+          srctag = "cachyos-" major "." ltsver "-" tagrel
         } else {
-          print major "." minor
+          version = major "." minor
+          srctag = "cachyos-" major "." minor "-" tagrel
         }
-      }
-    '
-  }
-
-  parse_tagrel() {
-    awk -F= '
-      /^[[:space:]]*_tagrel[[:space:]]*=/ {
-        gsub(/[[:space:]]/, "", $2)
-        print $2
-        exit
-      }
-    '
-  }
-
-  parse_srctag() {
-    awk -F= '
-      /^[[:space:]]*_major[[:space:]]*=/ {
-        gsub(/[[:space:]]/, "", $2)
-        major=$2
-      }
-      /^[[:space:]]*_minor[[:space:]]*=/ {
-        gsub(/[[:space:]]/, "", $2)
-        minor=$2
-      }
-      /^[[:space:]]*_rcver[[:space:]]*=/ {
-        gsub(/[[:space:]]/, "", $2)
-        rcver=$2
-      }
-      /^[[:space:]]*_ltsver[[:space:]]*=/ {
-        gsub(/[[:space:]]/, "", $2)
-        ltsver=$2
-      }
-      /^[[:space:]]*_tagrel[[:space:]]*=/ {
-        gsub(/[[:space:]]/, "", $2)
-        tagrel=$2
-      }
-      END {
-        if (rcver != "") {
-          print "cachyos-" major "-" rcver "-" tagrel
-        } else if (ltsver != "") {
-          print "cachyos-" major "." ltsver "-" tagrel
-        } else {
-          print "cachyos-" major "." minor "-" tagrel
-        }
+        print version " " tagrel " " srctag
       }
     '
   }
 
   pkgbuild=$(fetch_pkgbuild)
+  read -r latestVer latestTagrel srcTag < <(parse_all <<< "$pkgbuild")
 
-  latestVer=$(printf "%s\n" "$pkgbuild" | parse_version)
-  latestTagrel=$(printf "%s\n" "$pkgbuild" | parse_tagrel)
-  srcTag=$(printf "%s\n" "$pkgbuild" | parse_srctag)
   srcUrl="https://github.com/CachyOS/linux/releases/download/''${srcTag}/''${srcTag}.tar.gz"
 
   if [[ "${"FORCE:-0"}" != "1" && "$localVer" == "$latestVer" && "$localTagrel" == "$latestTagrel" ]]; then
@@ -201,8 +114,7 @@ writeShellScript "update-cachyos" ''
     --arg patchesRev "$patchesRev" \
     --arg patchesHash "$patchesHash" \
     --arg zfsRev "$zfsRev" \
-    --arg zfsHash "$zfsHash" \
-    '
+    --arg zfsHash "$zfsHash" '
       .linux.version = $latestVer |
       .linux.hash = $latestHash |
       .linux.tagrel = $latestTagrel |
@@ -214,23 +126,16 @@ writeShellScript "update-cachyos" ''
       .zfs.hash = $zfsHash
     ' "$srcJson" | sponge "$srcJson"
 
-  printf "%s\n" "$pkgbuild" | grep '^:' | jq -Rn '
-    [inputs
-    | capture(":\\s*\"\\$\\{(?<key>[a-zA-Z0-9_]+):=(?<value>.*)\\}\"$") // empty]
-    | reduce .[] as $i ({}; .[$i.key] = $i.value)
-  ' > linux-cachyos/config-vars/cachyos${mainFlavor}.json
-
-  ${lib.strings.concatMapStrings (flavor: ''
+  for flv in ${flavorsStr}; do
     out=$(nix build \
-      ".#legacyPackages.x86_64-linux.linuxPackages_cachyos${flavor}.kernel.kconfigToNix" \
+      ".#packages.x86_64-linux.linux_cachyos''${flv}.kconfigToNix" \
       --no-link --print-out-paths 2>/dev/null) || true
 
     if [ -n "$out" ] && [ -f "$out" ]; then
-      cat "$out" > linux-cachyos/config-nix/cachyos${flavor}.x86_64-linux.nix
+      cat "$out" > linux-cachyos/config-nix/cachyos''${flv}.x86_64-linux.nix
     fi
-  '') (major.flavors or [ mainFlavor ])}
+  done
 
   git add linux-cachyos
-  git commit -m \
-    "linux_cachyos${suffix}: $localVer-$localTagrel -> $latestVer-$latestTagrel"
+  git commit -m "linux_cachyos${suffix}: $localVer-$localTagrel -> $latestVer-$latestTagrel"
 ''
