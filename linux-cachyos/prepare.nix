@@ -59,7 +59,7 @@ let
       ++ lib.optionals (cachyConfig.cpuSched == "cachyos" && version != "6.17-rc1") [
         (
           if
-            version == "6.18.35"
+            lib.versionAtLeast version "6.18.35"
             && toString (cachyConfig.versions.linux.tagrel or "") == "1"
             && cachyConfig.taste == "linux-cachyos-lts"
           then
