@@ -21,7 +21,7 @@
             path: attrs:
             import path (
               {
-                inherit final inputs prev;
+                inherit final prev;
               }
               // attrs
             );

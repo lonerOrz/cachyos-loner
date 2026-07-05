@@ -16,11 +16,7 @@ let
 
   updater = final.callPackage ./update.nix { inherit variant; };
 
-  # Use passed linuxPackages or fall back to overlay lookup (backward compat)
-  cachyosLinuxPackages =
-    if linuxPackages != null then linuxPackages
-    else if variant == "stable" then final.linuxPackages_cachyos
-    else final."linuxPackages_cachyos-${variant}";
+  cachyosLinuxPackages = linuxPackages;
 
   # Mirrors the logic in pkgs/linux-cachyos/lib/llvm-module-overlay.nix
   fixNoVideo =

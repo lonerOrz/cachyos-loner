@@ -241,7 +241,6 @@ let
       v.overrideAttrs (prevAttrs: {
         meta = (prevAttrs.meta or { }) // {
           platforms = lib.lists.intersectLists (prevAttrs.meta.platforms or [ ]) supportedPlatforms;
-          platformsOrig = prevAttrs.meta.platforms or [ ];
           badPlatforms = [ ];
         };
       })
