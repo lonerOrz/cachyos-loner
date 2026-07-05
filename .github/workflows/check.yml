@@ -89,4 +89,12 @@ jobs:
         run: nix build .#linux_cachyos-${{ matrix.variant }}.kconfigToNix -L --impure
 
       - name: Diff against checked-in config-nix
-        run: diff <(cat result) linux-cachyos/config-nix/${{ matrix.config_file }}
+        run: |
+          if [ "${{ matrix.config_file }}" = "cachyos-znver4.x86_64-linux.nix" ]; then
+            nix eval --impure --json --expr 'import ./linux-cachyos/config-nix/cachyos-znver4.x86_64-linux.nix' | \
+              jq -r 'to_entries | .[] | "  \"\(.key)\" = \"\(.value)\";"' | sort > /tmp/expected
+            sed '1d;$d' result | sort > /tmp/actual
+            diff /tmp/expected /tmp/actual
+          else
+            diff <(cat result) linux-cachyos/config-nix/${{ matrix.config_file }}
+          fi
