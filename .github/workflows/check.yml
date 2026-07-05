@@ -15,9 +15,7 @@ jobs:
         variant: [gcc, lto, lto-znver4, server, hardened, lts, rc]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: cachix/install-nix-action@v30
+      - uses: ./.github/actions/setup-build
 
       - name: Verify Kernel Configuration and Patches
         run: nix build .#linux_cachyos-${{ matrix.variant }}.configfile -L --impure
@@ -42,9 +40,9 @@ jobs:
             config_file: cachyos-lts.x86_64-linux.nix
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: cachix/install-nix-action@v30
+      - uses: ./.github/actions/setup-build
+        with:
+          sandbox-fallback: "false"
 
       - name: Build kconfigToNix
         run: nix build .#linux_cachyos-${{ matrix.variant }}.kconfigToNix -L --impure
