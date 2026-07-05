@@ -156,99 +156,61 @@
         let
           pkgs = self.packages.${system};
           linuxPkgs = self.legacyPackages.${system} or { };
-          isDerivation = x: builtins.isAttrs x && x ? type && x.type == "derivation";
 
-          safeGetAttr =
-            set: attr:
-            let
-              tryEval = builtins.tryEval set.${attr};
-            in
-            if tryEval.success then tryEval.value else null;
-
-          safeGetDrvPath =
+          tryDrvPath =
             pkg:
-            let
-              tryEval = builtins.tryEval pkg.drvPath;
-            in
-            if tryEval.success then tryEval.value else "error";
+            let r = builtins.tryEval (pkg.drvPath or null);
+            in if r.success && r.value != null then r.value else null;
 
-          safeIsDerivation =
+          tryAttr =
             set: attr:
-            let
-              val = safeGetAttr set attr;
-            in
-            val != null && isDerivation val;
+            let r = builtins.tryEval (set.${attr} or null);
+            in if r.success then r.value else null;
+
+          isDerivation = x: builtins.isAttrs x && (x.type or null) == "derivation";
 
           isCoreModule =
             name:
-            let
-              isNestedNvidia = lib.strings.hasInfix "nvidia" name && lib.strings.hasInfix "linuxPackages" name;
-              targetKeywords = [
-                "nvidia"
-                "zfs_cachyos"
-              ];
-              hasTargetKeyword = lib.any (keyword: lib.strings.hasInfix keyword name) targetKeywords;
-            in
-            (!isNestedNvidia) && hasTargetKeyword;
+            let has = s: lib.strings.hasInfix s name;
+            in (has "nvidia" || has "zfs_cachyos") && !(has "nvidia" && has "linuxPackages");
 
           extractModuleDrvs =
-            variantName: moduleName:
+            variant: mod:
             let
-              moduleVal = safeGetAttr linuxPkgs.${variantName} moduleName;
-              fullName = "legacyPackages.${system}.${variantName}.${moduleName}";
+              val = tryAttr linuxPkgs.${variant} mod;
+              prefix = "legacyPackages.${system}.${variant}.${mod}";
             in
-            if moduleVal == null then
-              [ ]
-            else if isDerivation moduleVal then
-              [
-                {
-                  name = fullName;
-                  value = safeGetDrvPath moduleVal;
-                }
-              ]
-            else if builtins.isAttrs moduleVal && !(moduleVal ? type) then
-              map (
-                subName:
-                let
-                  subVal = safeGetAttr moduleVal subName;
-                in
-                {
-                  name = "${fullName}.${subName}";
-                  value = safeGetDrvPath subVal;
-                }
-              ) (builtins.filter (n: safeIsDerivation moduleVal n) (builtins.attrNames moduleVal))
-            else
-              [ ];
+            if val == null then [ ]
+            else if isDerivation val then
+              [ { name = prefix; value = tryDrvPath val; } ]
+            else if builtins.isAttrs val && !(val ? type) then
+              map
+                (n: { name = "${prefix}.${n}"; value = tryDrvPath (tryAttr val n); })
+                (builtins.filter (n: let v = tryAttr val n; in v != null && isDerivation v) (builtins.attrNames val))
+            else [ ];
 
-          flatPackages = builtins.listToAttrs (
-            map (name: {
-              name = "packages.${system}.${name}";
-              value = safeGetDrvPath pkgs.${name};
-            }) (builtins.attrNames pkgs)
-          );
+          flatPackages = lib.genAttrs
+            (builtins.attrNames pkgs)
+            (name: tryDrvPath pkgs.${name});
 
           allNested = builtins.listToAttrs (
-            lib.concatMap (
-              variantName:
-              let
-                variantSet = linuxPkgs.${variantName} or { };
-              in
-              if builtins.isAttrs variantSet then
-                lib.concatMap (moduleName: extractModuleDrvs variantName moduleName) (builtins.attrNames variantSet)
-              else
-                [ ]
-            ) (builtins.attrNames linuxPkgs)
+            lib.concatMap
+              (variant:
+                let s = linuxPkgs.${variant} or { };
+                in if builtins.isAttrs s
+                then lib.concatMap (mod: extractModuleDrvs variant mod) (builtins.attrNames s)
+                else [ ]
+              )
+              (builtins.attrNames linuxPkgs)
           );
 
-          allCombined = flatPackages // allNested;
-          partitioned = lib.filterAttrs (name: value: value != "error") allCombined;
+          all = lib.filterAttrs (_: v: v != null) (flatPackages // allNested);
         in
         {
-          kernels = lib.filterAttrs (
-            name: _value: (lib.strings.hasInfix "linux_cachyos" name) || (lib.strings.hasInfix ".kernel" name)
-          ) partitioned;
-
-          modules = lib.filterAttrs (name: _value: isCoreModule name) partitioned;
+          kernels = lib.filterAttrs
+            (name: _: lib.strings.hasInfix "linux_cachyos" name || lib.strings.hasInfix ".kernel" name)
+            all;
+          modules = lib.filterAttrs (_: isCoreModule) all;
         }
       );
 

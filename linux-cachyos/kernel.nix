@@ -3,7 +3,6 @@
   kconfigToNix,
   config,
   configfile,
-  utils,
   lib,
   linuxManualConfig,
   stdenv,

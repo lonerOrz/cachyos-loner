@@ -16,7 +16,6 @@ FLAKE_REF = f"path:{REPO_ROOT.resolve()}"
 
 class Log:
     USE_COLOR = sys.stdout.isatty()
-
     RESET = "\033[0m"
     BOLD = "\033[1m"
     RED = "\033[31m"
@@ -27,35 +26,38 @@ class Log:
     DIM = "\033[2m"
 
     @classmethod
-    def c(cls, text, color_code, bold=False):
+    def _fmt(cls, text, color, bold=False):
         if not cls.USE_COLOR:
             return text
-        prefix = cls.BOLD if bold else ""
-        return f"{prefix}{color_code}{text}{cls.RESET}"
+        return f"{cls.BOLD if bold else ''}{color}{text}{cls.RESET}"
+
+    @classmethod
+    def c(cls, text, color, bold=False):
+        return cls._fmt(text, color, bold)
 
     @classmethod
     def info(cls, text):
-        print(f"{cls.c('[ INFO ]', cls.BLUE, bold=True)} {text}")
+        print(f"{cls._fmt('[ INFO ]', cls.BLUE, bold=True)} {text}")
 
     @classmethod
     def skip(cls, text):
-        print(f"{cls.c('[ SKIP ]', cls.YELLOW)} {text}")
+        print(f"{cls._fmt('[ SKIP ]', cls.YELLOW)} {text}")
 
     @classmethod
     def run(cls, text):
-        print(f"{cls.c('[ RUN  ]', cls.CYAN, bold=True)} {text}")
+        print(f"{cls._fmt('[ RUN  ]', cls.CYAN, bold=True)} {text}")
 
     @classmethod
     def ok(cls, text):
-        print(f"{cls.c('[  OK  ]', cls.GREEN, bold=True)} {text}")
+        print(f"{cls._fmt('[  OK  ]', cls.GREEN, bold=True)} {text}")
 
     @classmethod
     def fail(cls, text):
-        print(f"{cls.c('[ FAIL ]', cls.RED, bold=True)} {text}", file=sys.stderr)
+        print(f"{cls._fmt('[ FAIL ]', cls.RED, bold=True)} {text}", file=sys.stderr)
 
     @classmethod
     def divider(cls):
-        print(cls.c("─" * 65, cls.DIM))
+        print(cls._fmt("─" * 65, cls.DIM))
 
 
 def get_log_file(log_dir: Path, pkg_name: str):
