@@ -1,0 +1,40 @@
+name: Setup Build Environment
+description: Checkout, free disk, swap, install Nix, and setup noci cache
+
+inputs:
+  checkout-token:
+    description: GitHub token for checkout
+    required: false
+  sandbox-fallback:
+    description: Nix sandbox fallback setting
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v6
+      with:
+        token: ${{ inputs.checkout-token || '' }}
+
+    - name: Free Disk Space
+      uses: jlumbroso/free-disk-space@main
+
+    - name: Add Swap Space
+      uses: pierotofy/set-swap-space@master
+      with:
+        swap-size-gb: 20
+
+    - name: Install Nix
+      uses: cachix/install-nix-action@v31
+      with:
+        extra_nix_config: |
+          accept-flake-config = true
+          sandbox-fallback = ${{ inputs.sandbox-fallback }}
+          access-tokens = github.com=${{ secrets.GH_TOKEN }}
+
+    - name: Setup noci cache
+      uses: lonerOrz/noci/action@main
+      with:
+        repo: ${{ github.repository }}
+        signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
+        token: ${{ secrets.GH_TOKEN }}

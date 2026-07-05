@@ -111,29 +111,7 @@ jobs:
       matrix:
         package: ${{ fromJson(needs.prepare.outputs.kernels_matrix) }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
-
-      - name: Add Swap Space
-        uses: pierotofy/set-swap-space@master
-        with:
-          swap-size-gb: 20
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-        with:
-          extra_nix_config: |
-            accept-flake-config = true
-            access-tokens = github.com=${{ secrets.GH_TOKEN }}
-
-      - name: Setup noci cache
-        uses: lonerOrz/noci/action@main
-        with:
-          repo: ${{ github.repository }}
-          signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
-          token: ${{ secrets.GH_TOKEN }}
+      - uses: ./.github/actions/setup-build
 
       - name: Build Kernel
         run: nix build .#${{ matrix.package }} -L --impure
@@ -148,29 +126,7 @@ jobs:
       matrix:
         package: ${{ fromJson(needs.prepare.outputs.modules_matrix) }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
-
-      - name: Add Swap Space
-        uses: pierotofy/set-swap-space@master
-        with:
-          swap-size-gb: 20
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-        with:
-          extra_nix_config: |
-            accept-flake-config = true
-            access-tokens = github.com=${{ secrets.GH_TOKEN }}
-
-      - name: Setup noci cache
-        uses: lonerOrz/noci/action@main
-        with:
-          repo: ${{ github.repository }}
-          signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
-          token: ${{ secrets.GH_TOKEN }}
+      - uses: ./.github/actions/setup-build
 
       - name: Build Module
         run: nix build .#${{ matrix.package }} -L --impure

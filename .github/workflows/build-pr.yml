@@ -89,32 +89,10 @@ jobs:
         package: ${{ fromJson(needs.detect.outputs.kernels) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-build
         with:
-          token: ${{ secrets.GH_TOKEN }}
-
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
-
-      - name: Add Swap Space
-        uses: pierotofy/set-swap-space@master
-        with:
-          swap-size-gb: 20
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-        with:
-          extra_nix_config: |
-            accept-flake-config = true
-            sandbox-fallback = false
-            access-tokens = github.com=${{ secrets.GH_TOKEN }}
-
-      - name: Setup noci cache
-        uses: lonerOrz/noci/action@main
-        with:
-          repo: ${{ github.repository }}
-          signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
-          token: ${{ secrets.GH_TOKEN }}
+          checkout-token: ${{ secrets.GH_TOKEN }}
+          sandbox-fallback: "false"
 
       - name: Build Kernel
         run: nix build .#${{ matrix.package }} -L --impure
@@ -129,32 +107,10 @@ jobs:
         package: ${{ fromJson(needs.detect.outputs.modules) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup-build
         with:
-          token: ${{ secrets.GH_TOKEN }}
-
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
-
-      - name: Add Swap Space
-        uses: pierotofy/set-swap-space@master
-        with:
-          swap-size-gb: 20
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
-        with:
-          extra_nix_config: |
-            accept-flake-config = true
-            sandbox-fallback = false
-            access-tokens = github.com=${{ secrets.GH_TOKEN }}
-
-      - name: Setup noci cache
-        uses: lonerOrz/noci/action@main
-        with:
-          repo: ${{ github.repository }}
-          signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
-          token: ${{ secrets.GH_TOKEN }}
+          checkout-token: ${{ secrets.GH_TOKEN }}
+          sandbox-fallback: "false"
 
       - name: Build Module
         run: nix build .#${{ matrix.package }} -L --impure
