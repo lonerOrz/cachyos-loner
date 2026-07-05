@@ -32,13 +32,13 @@ jobs:
         with:
           extra_nix_config: |
             accept-flake-config = true
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
       - uses: lonerOrz/noci/action@main
         with:
           repo: ${{ github.repository }}
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Verify Kernel Configuration and Patches
         run: nix build .#linux_cachyos-${{ matrix.variant }}.configfile -L --impure
@@ -77,13 +77,13 @@ jobs:
           extra_nix_config: |
             accept-flake-config = true
             sandbox-fallback = false
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
       - uses: lonerOrz/noci/action@main
         with:
           repo: ${{ github.repository }}
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Build kconfigToNix
         run: nix build .#linux_cachyos-${{ matrix.variant }}.kconfigToNix -L --impure
