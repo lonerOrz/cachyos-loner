@@ -90,13 +90,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
-      - uses: ./.github/actions/setup-build
         with:
-          checkout-token: ${{ secrets.GH_TOKEN }}
-          gh-token: ${{ secrets.GH_TOKEN }}
-          noci-signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
-          sandbox-fallback: "false"
+          token: ${{ secrets.GH_TOKEN }}
+
+      - uses: jlumbroso/free-disk-space@main
+
+      - uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 20
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            sandbox-fallback = false
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
+
+      - uses: lonerOrz/noci/action@main
+        with:
+          repo: ${{ github.repository }}
+          signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Build Kernel
         run: nix build .#${{ matrix.package }} -L --impure
@@ -112,13 +127,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
-      - uses: ./.github/actions/setup-build
         with:
-          checkout-token: ${{ secrets.GH_TOKEN }}
-          gh-token: ${{ secrets.GH_TOKEN }}
-          noci-signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
-          sandbox-fallback: "false"
+          token: ${{ secrets.GH_TOKEN }}
+
+      - uses: jlumbroso/free-disk-space@main
+
+      - uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 20
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            sandbox-fallback = false
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
+
+      - uses: lonerOrz/noci/action@main
+        with:
+          repo: ${{ github.repository }}
+          signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Build Module
         run: nix build .#${{ matrix.package }} -L --impure

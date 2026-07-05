@@ -21,10 +21,24 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: ./.github/actions/setup-build
+      - uses: jlumbroso/free-disk-space@main
+
+      - uses: pierotofy/set-swap-space@master
         with:
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
-          noci-signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
+          swap-size-gb: 20
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      - uses: lonerOrz/noci/action@main
+        with:
+          repo: ${{ github.repository }}
+          signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify Kernel Configuration and Patches
         run: nix build .#linux_cachyos-${{ matrix.variant }}.configfile -L --impure
@@ -51,11 +65,25 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: ./.github/actions/setup-build
+      - uses: jlumbroso/free-disk-space@main
+
+      - uses: pierotofy/set-swap-space@master
         with:
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
-          noci-signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
-          sandbox-fallback: "false"
+          swap-size-gb: 20
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            sandbox-fallback = false
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      - uses: lonerOrz/noci/action@main
+        with:
+          repo: ${{ github.repository }}
+          signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build kconfigToNix
         run: nix build .#linux_cachyos-${{ matrix.variant }}.kconfigToNix -L --impure
