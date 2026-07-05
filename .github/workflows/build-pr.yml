@@ -89,6 +89,8 @@ jobs:
         package: ${{ fromJson(needs.detect.outputs.kernels) }}
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
+
       - uses: ./.github/actions/setup-build
         with:
           checkout-token: ${{ secrets.GH_TOKEN }}
@@ -107,6 +109,8 @@ jobs:
         package: ${{ fromJson(needs.detect.outputs.modules) }}
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
+
       - uses: ./.github/actions/setup-build
         with:
           checkout-token: ${{ secrets.GH_TOKEN }}
