@@ -12,7 +12,7 @@ jobs:
   check:
     strategy:
       matrix:
-        variant: [gcc, lto, server, hardened, lts, rc]
+        variant: [gcc, lto, lto-znver4, server, hardened, lts, rc]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,3 +21,33 @@ jobs:
 
       - name: Verify Kernel Configuration and Patches
         run: nix build .#linux_cachyos-${{ matrix.variant }}.configfile -L --impure
+
+  config-nix-check:
+    strategy:
+      matrix:
+        include:
+          - variant: gcc
+            config_file: cachyos-gcc.x86_64-linux.nix
+          - variant: lto
+            config_file: cachyos-lto.x86_64-linux.nix
+          - variant: lto-znver4
+            config_file: cachyos-znver4.x86_64-linux.nix
+          - variant: server
+            config_file: cachyos-server.x86_64-linux.nix
+          - variant: hardened
+            config_file: cachyos-hardened.x86_64-linux.nix
+          - variant: rc
+            config_file: cachyos-rc.x86_64-linux.nix
+          - variant: lts
+            config_file: cachyos-lts.x86_64-linux.nix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v30
+
+      - name: Build kconfigToNix
+        run: nix build .#linux_cachyos-${{ matrix.variant }}.kconfigToNix -L --impure
+
+      - name: Diff against checked-in config-nix
+        run: diff <(cat result) linux-cachyos/config-nix/${{ matrix.config_file }}
