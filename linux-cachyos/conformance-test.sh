@@ -10,7 +10,7 @@ WORK_DIR="${WORK_DIR:-$(mktemp -d)}"
 cd "$WORK_DIR"
 echo "Working at $WORK_DIR"
 
-CACHY_VERSION=${CACHY_VERSION:-7.0.11-1}
+: "${CACHY_VERSION:?Set CACHY_VERSION, e.g. 7.1.0-1}"
 CACHY_URL="https://mirror.cachyos.org/repo/x86_64${CACHY_REPO_SUFFIX:-}/cachyos/linux-cachyos${CACHY_FILE_SUFFIX:--$CACHY_VERSION-x86_64}.pkg.tar.zst"
 
 [ -e ./linux-cachy.pkg.tar.zst ] || curl -o linux-cachy.pkg.tar.zst "$CACHY_URL"

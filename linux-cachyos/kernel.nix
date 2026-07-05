@@ -9,8 +9,6 @@
   commonMakeFlags,
   # Weird injections
   kernelPatches ? [ ],
-  features ? null,
-  randstructSeed ? "",
   # For tests
   kernelPackages,
   flakes,
@@ -23,8 +21,6 @@ in
   inherit
     stdenv
     version
-    features
-    randstructSeed
     ;
   inherit (configfile) src;
   modDirVersion = lib.versions.pad 3 "${version}${cachyConfig.versions.suffix}";
