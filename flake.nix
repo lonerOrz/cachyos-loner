@@ -45,8 +45,21 @@
         registry;
 
       utils = import ./utils.nix {
-        inherit lib nixpkgs defaultOverlay;
+        inherit lib nixpkgs;
       };
+
+      # Overlay evaluation: compute once per system, shared by packages + legacyPackages.
+      # Returns only the overlay's own packages (not all of nixpkgs).
+      overlayFor =
+        system:
+        let
+          pkgs = utils.getPkgs system;
+          ourPackages = defaultOverlay overlayFinal pkgs;
+          overlayFinal = (ourPackages // pkgs) // {
+            callPackage = pkgs.newScope overlayFinal;
+          };
+        in
+        ourPackages;
 
       updateApp =
         system:
@@ -92,19 +105,16 @@
 
       packages = forAllSystems (
         system:
-        utils.applyOverlay {
-          pkgs = utils.getPkgs system;
-          onlyDerivations = true;
-        }
+        let
+          overlayPkgs = overlayFor system;
+        in
+        lib.filterAttrs (_: v: (builtins.tryEval v).success && lib.isDerivation v) overlayPkgs
       );
 
       legacyPackages = forAllSystems (
         system:
         let
-          overlayPkgs = utils.applyOverlay {
-            pkgs = utils.getPkgs system;
-            onlyDerivations = false;
-          };
+          overlayPkgs = overlayFor system;
         in
         {
           linuxPackages_cachyos-gcc = overlayPkgs.linuxPackages_cachyos-gcc;

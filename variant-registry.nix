@@ -104,7 +104,7 @@ linuxKernelAttrs
 // nvidiaKernelAttrs
 // {
   zfs_cachyos = prev.zfs_2_4.overrideAttrs (prevAttrs: {
-    src = cachyosPackages.zfs.src;
+    src = cachyosPackages."cachyos-gcc".zfs_cachyos.src;
     patches = [ ];
     passthru = prevAttrs.passthru // {
       kernelModuleAttribute = "zfs_cachyos";
