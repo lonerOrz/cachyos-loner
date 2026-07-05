@@ -139,9 +139,6 @@ let
     kernelPatches = [ ];
     configfile = preparedConfigfile;
     config = linuxConfigTransformed;
-    # For tests
-    inherit (inputs) flakes final;
-    kernelPackages = basePackages;
   };
 
   kernelWithUpdateScript = kernel.overrideAttrs (prevAttrs: {
