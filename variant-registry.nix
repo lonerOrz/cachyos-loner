@@ -77,18 +77,19 @@ let
         name:
         let
           nvidiaConf = nvidiaVariants.${name};
+          pkg = cachyosPackages."cachyos-${name}";
           variantArg = { variant = nvidiaConf.variant; };
         in
         [
           {
             name = "nvidia_cachyos-${name}";
             value =
-              let drv = callOverride ./nvidia-cachyos variantArg;
+              let drv = callOverride ./nvidia-cachyos (variantArg // { linuxPackages = pkg; });
               in if nvidiaConf ? dropUpdate then dropUpdate drv else drv;
           }
           {
             name = "nvidia_cachyos-${name}-open";
-            value = dropUpdate (callOverride ./nvidia-cachyos variantArg).open;
+            value = dropUpdate (callOverride ./nvidia-cachyos (variantArg // { linuxPackages = pkg; })).open;
           }
         ]
       )
@@ -97,8 +98,8 @@ let
 in
 linuxKernelAttrs
 // {
-  nvidia_cachyos = dropUpdate (callOverride ./nvidia-cachyos { });
-  nvidia_cachyos-open = dropUpdate (callOverride ./nvidia-cachyos { }).open;
+  nvidia_cachyos = dropUpdate (callOverride ./nvidia-cachyos { linuxPackages = cachyosPackages."cachyos-gcc"; });
+  nvidia_cachyos-open = dropUpdate (callOverride ./nvidia-cachyos { linuxPackages = cachyosPackages."cachyos-gcc"; }).open;
 }
 // nvidiaKernelAttrs
 // {
