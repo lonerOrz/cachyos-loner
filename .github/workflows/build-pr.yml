@@ -94,6 +94,8 @@ jobs:
       - uses: ./.github/actions/setup-build
         with:
           checkout-token: ${{ secrets.GH_TOKEN }}
+          gh-token: ${{ secrets.GH_TOKEN }}
+          noci-signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
           sandbox-fallback: "false"
 
       - name: Build Kernel
@@ -114,6 +116,8 @@ jobs:
       - uses: ./.github/actions/setup-build
         with:
           checkout-token: ${{ secrets.GH_TOKEN }}
+          gh-token: ${{ secrets.GH_TOKEN }}
+          noci-signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
           sandbox-fallback: "false"
 
       - name: Build Module

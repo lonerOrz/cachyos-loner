@@ -114,6 +114,9 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-build
+        with:
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          noci-signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
 
       - name: Build Kernel
         run: nix build .#${{ matrix.package }} -L --impure
@@ -131,6 +134,9 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-build
+        with:
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          noci-signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
 
       - name: Build Module
         run: nix build .#${{ matrix.package }} -L --impure

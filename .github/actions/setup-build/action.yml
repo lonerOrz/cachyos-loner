@@ -5,6 +5,12 @@ inputs:
   checkout-token:
     description: GitHub token for checkout
     required: false
+  gh-token:
+    description: GitHub token for nix access-tokens
+    required: true
+  noci-signing-key:
+    description: Noci cache signing key
+    required: true
   sandbox-fallback:
     description: Nix sandbox fallback setting
     default: "true"
@@ -30,11 +36,11 @@ runs:
         extra_nix_config: |
           accept-flake-config = true
           sandbox-fallback = ${{ inputs.sandbox-fallback }}
-          access-tokens = github.com=${{ secrets.GH_TOKEN }}
+          access-tokens = github.com=${{ inputs.gh-token }}
 
     - name: Setup noci cache
       uses: lonerOrz/noci/action@main
       with:
         repo: ${{ github.repository }}
-        signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
-        token: ${{ secrets.GH_TOKEN }}
+        signing-key: ${{ inputs.noci-signing-key }}
+        token: ${{ inputs.gh-token }}

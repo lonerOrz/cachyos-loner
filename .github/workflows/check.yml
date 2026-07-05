@@ -18,6 +18,9 @@ jobs:
       - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-build
+        with:
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          noci-signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
 
       - name: Verify Kernel Configuration and Patches
         run: nix build .#linux_cachyos-${{ matrix.variant }}.configfile -L --impure
@@ -46,6 +49,8 @@ jobs:
 
       - uses: ./.github/actions/setup-build
         with:
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          noci-signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
           sandbox-fallback: "false"
 
       - name: Build kconfigToNix
