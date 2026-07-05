@@ -37,46 +37,12 @@
               });
             in
             overridden // (if pkg ? open then { open = dropUpdate pkg.open; } else { });
+
+          registry = import ./variant-registry.nix {
+            inherit lib final prev cachyosPackages callOverride dropUpdate;
+          };
         in
-        {
-          linux_cachyos = dropUpdate final.linux_cachyos-gcc;
-          linux_cachyos-lto = dropUpdate cachyosPackages.cachyos-lto.kernel;
-          linux_cachyos-lto-znver4 = dropUpdate cachyosPackages.cachyos-lto-znver4.kernel;
-
-          linux_cachyos-gcc = cachyosPackages.cachyos-gcc.kernel;
-          linux_cachyos-server = cachyosPackages.cachyos-server.kernel;
-          linux_cachyos-hardened = cachyosPackages.cachyos-hardened.kernel;
-          linux_cachyos-rc = cachyosPackages.cachyos-rc.kernel;
-          linux_cachyos-lts = cachyosPackages.cachyos-lts.kernel;
-
-          linuxPackages_cachyos = cachyosPackages.cachyos-gcc;
-          linuxPackages_cachyos-lto = cachyosPackages.cachyos-lto;
-          linuxPackages_cachyos-lto-znver4 = cachyosPackages.cachyos-lto-znver4;
-
-          linuxPackages_cachyos-gcc = cachyosPackages.cachyos-gcc;
-          linuxPackages_cachyos-server = cachyosPackages.cachyos-server;
-          linuxPackages_cachyos-hardened = cachyosPackages.cachyos-hardened;
-          linuxPackages_cachyos-rc = cachyosPackages.cachyos-rc;
-          linuxPackages_cachyos-lts = cachyosPackages.cachyos-lts;
-
-          nvidia_cachyos = callOverride ./nvidia-cachyos { };
-          nvidia_cachyos-gcc = dropUpdate final.nvidia_cachyos;
-          nvidia_cachyos-lto = dropUpdate (callOverride ./nvidia-cachyos { variant = "lto"; });
-          nvidia_cachyos-rc = callOverride ./nvidia-cachyos { variant = "rc"; };
-          nvidia_cachyos-server = callOverride ./nvidia-cachyos { variant = "server"; };
-          nvidia_cachyos-hardened = callOverride ./nvidia-cachyos { variant = "hardened"; };
-          nvidia_cachyos-lts = callOverride ./nvidia-cachyos { variant = "lts"; };
-
-          nvidia_cachyos-open = dropUpdate final.nvidia_cachyos.open;
-          nvidia_cachyos-gcc-open = dropUpdate final.nvidia_cachyos-open;
-          nvidia_cachyos-lto-open = dropUpdate final.nvidia_cachyos-lto.open;
-          nvidia_cachyos-rc-open = dropUpdate final.nvidia_cachyos-rc.open;
-          nvidia_cachyos-server-open = dropUpdate final.nvidia_cachyos-server.open;
-          nvidia_cachyos-hardened-open = dropUpdate final.nvidia_cachyos-hardened.open;
-          nvidia_cachyos-lts-open = dropUpdate final.nvidia_cachyos-lts.open;
-
-          zfs_cachyos = dropUpdate cachyosPackages.zfs;
-        };
+        registry;
 
       utils = import ./utils.nix {
         inherit lib nixpkgs defaultOverlay;
