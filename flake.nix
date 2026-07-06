@@ -21,7 +21,7 @@
             path: attrs:
             import path (
               {
-                inherit final inputs prev;
+                inherit final prev;
               }
               // attrs
             );
@@ -37,50 +37,29 @@
               });
             in
             overridden // (if pkg ? open then { open = dropUpdate pkg.open; } else { });
+
+          registry = import ./variant-registry.nix {
+            inherit lib final prev cachyosPackages callOverride dropUpdate;
+          };
         in
-        {
-          linux_cachyos = dropUpdate final.linux_cachyos-gcc;
-          linux_cachyos-lto = dropUpdate cachyosPackages.cachyos-lto.kernel;
-          linux_cachyos-lto-znver4 = dropUpdate cachyosPackages.cachyos-lto-znver4.kernel;
-
-          linux_cachyos-gcc = cachyosPackages.cachyos-gcc.kernel;
-          linux_cachyos-server = cachyosPackages.cachyos-server.kernel;
-          linux_cachyos-hardened = cachyosPackages.cachyos-hardened.kernel;
-          linux_cachyos-rc = cachyosPackages.cachyos-rc.kernel;
-          linux_cachyos-lts = cachyosPackages.cachyos-lts.kernel;
-
-          linuxPackages_cachyos = cachyosPackages.cachyos-gcc;
-          linuxPackages_cachyos-lto = cachyosPackages.cachyos-lto;
-          linuxPackages_cachyos-lto-znver4 = cachyosPackages.cachyos-lto-znver4;
-
-          linuxPackages_cachyos-gcc = cachyosPackages.cachyos-gcc;
-          linuxPackages_cachyos-server = cachyosPackages.cachyos-server;
-          linuxPackages_cachyos-hardened = cachyosPackages.cachyos-hardened;
-          linuxPackages_cachyos-rc = cachyosPackages.cachyos-rc;
-          linuxPackages_cachyos-lts = cachyosPackages.cachyos-lts;
-
-          nvidia_cachyos = callOverride ./nvidia-cachyos { };
-          nvidia_cachyos-gcc = dropUpdate final.nvidia_cachyos;
-          nvidia_cachyos-lto = dropUpdate (callOverride ./nvidia-cachyos { variant = "lto"; });
-          nvidia_cachyos-rc = callOverride ./nvidia-cachyos { variant = "rc"; };
-          nvidia_cachyos-server = callOverride ./nvidia-cachyos { variant = "server"; };
-          nvidia_cachyos-hardened = callOverride ./nvidia-cachyos { variant = "hardened"; };
-          nvidia_cachyos-lts = callOverride ./nvidia-cachyos { variant = "lts"; };
-
-          nvidia_cachyos-open = dropUpdate final.nvidia_cachyos.open;
-          nvidia_cachyos-gcc-open = dropUpdate final.nvidia_cachyos-open;
-          nvidia_cachyos-lto-open = dropUpdate final.nvidia_cachyos-lto.open;
-          nvidia_cachyos-rc-open = dropUpdate final.nvidia_cachyos-rc.open;
-          nvidia_cachyos-server-open = dropUpdate final.nvidia_cachyos-server.open;
-          nvidia_cachyos-hardened-open = dropUpdate final.nvidia_cachyos-hardened.open;
-          nvidia_cachyos-lts-open = dropUpdate final.nvidia_cachyos-lts.open;
-
-          zfs_cachyos = dropUpdate cachyosPackages.zfs;
-        };
+        registry;
 
       utils = import ./utils.nix {
-        inherit lib nixpkgs defaultOverlay;
+        inherit lib nixpkgs;
       };
+
+      # Overlay evaluation: compute once per system, shared by packages + legacyPackages.
+      # Returns only the overlay's own packages (not all of nixpkgs).
+      overlayFor =
+        system:
+        let
+          pkgs = utils.getPkgs system;
+          ourPackages = defaultOverlay overlayFinal pkgs;
+          overlayFinal = (ourPackages // pkgs) // {
+            callPackage = pkgs.newScope overlayFinal;
+          };
+        in
+        ourPackages;
 
       updateApp =
         system:
@@ -126,19 +105,16 @@
 
       packages = forAllSystems (
         system:
-        utils.applyOverlay {
-          pkgs = utils.getPkgs system;
-          onlyDerivations = true;
-        }
+        let
+          overlayPkgs = overlayFor system;
+        in
+        lib.filterAttrs (_: v: (builtins.tryEval v).success && lib.isDerivation v) overlayPkgs
       );
 
       legacyPackages = forAllSystems (
         system:
         let
-          overlayPkgs = utils.applyOverlay {
-            pkgs = utils.getPkgs system;
-            onlyDerivations = false;
-          };
+          overlayPkgs = overlayFor system;
         in
         {
           linuxPackages_cachyos-gcc = overlayPkgs.linuxPackages_cachyos-gcc;
@@ -156,99 +132,61 @@
         let
           pkgs = self.packages.${system};
           linuxPkgs = self.legacyPackages.${system} or { };
-          isDerivation = x: builtins.isAttrs x && x ? type && x.type == "derivation";
 
-          safeGetAttr =
-            set: attr:
-            let
-              tryEval = builtins.tryEval set.${attr};
-            in
-            if tryEval.success then tryEval.value else null;
-
-          safeGetDrvPath =
+          tryDrvPath =
             pkg:
-            let
-              tryEval = builtins.tryEval pkg.drvPath;
-            in
-            if tryEval.success then tryEval.value else "error";
+            let r = builtins.tryEval (pkg.drvPath or null);
+            in if r.success && r.value != null then r.value else null;
 
-          safeIsDerivation =
+          tryAttr =
             set: attr:
-            let
-              val = safeGetAttr set attr;
-            in
-            val != null && isDerivation val;
+            let r = builtins.tryEval (set.${attr} or null);
+            in if r.success then r.value else null;
+
+          isDerivation = x: builtins.isAttrs x && (x.type or null) == "derivation";
 
           isCoreModule =
             name:
-            let
-              isNestedNvidia = lib.strings.hasInfix "nvidia" name && lib.strings.hasInfix "linuxPackages" name;
-              targetKeywords = [
-                "nvidia"
-                "zfs_cachyos"
-              ];
-              hasTargetKeyword = lib.any (keyword: lib.strings.hasInfix keyword name) targetKeywords;
-            in
-            (!isNestedNvidia) && hasTargetKeyword;
+            let has = s: lib.strings.hasInfix s name;
+            in (has "nvidia" || has "zfs_cachyos") && !(has "nvidia" && has "linuxPackages");
 
           extractModuleDrvs =
-            variantName: moduleName:
+            variant: mod:
             let
-              moduleVal = safeGetAttr linuxPkgs.${variantName} moduleName;
-              fullName = "legacyPackages.${system}.${variantName}.${moduleName}";
+              val = tryAttr linuxPkgs.${variant} mod;
+              prefix = "legacyPackages.${system}.${variant}.${mod}";
             in
-            if moduleVal == null then
-              [ ]
-            else if isDerivation moduleVal then
-              [
-                {
-                  name = fullName;
-                  value = safeGetDrvPath moduleVal;
-                }
-              ]
-            else if builtins.isAttrs moduleVal && !(moduleVal ? type) then
-              map (
-                subName:
-                let
-                  subVal = safeGetAttr moduleVal subName;
-                in
-                {
-                  name = "${fullName}.${subName}";
-                  value = safeGetDrvPath subVal;
-                }
-              ) (builtins.filter (n: safeIsDerivation moduleVal n) (builtins.attrNames moduleVal))
-            else
-              [ ];
+            if val == null then [ ]
+            else if isDerivation val then
+              [ { name = prefix; value = tryDrvPath val; } ]
+            else if builtins.isAttrs val && !(val ? type) then
+              map
+                (n: { name = "${prefix}.${n}"; value = tryDrvPath (tryAttr val n); })
+                (builtins.filter (n: let v = tryAttr val n; in v != null && isDerivation v) (builtins.attrNames val))
+            else [ ];
 
-          flatPackages = builtins.listToAttrs (
-            map (name: {
-              name = "packages.${system}.${name}";
-              value = safeGetDrvPath pkgs.${name};
-            }) (builtins.attrNames pkgs)
-          );
+          flatPackages = lib.genAttrs
+            (builtins.attrNames pkgs)
+            (name: tryDrvPath pkgs.${name});
 
           allNested = builtins.listToAttrs (
-            lib.concatMap (
-              variantName:
-              let
-                variantSet = linuxPkgs.${variantName} or { };
-              in
-              if builtins.isAttrs variantSet then
-                lib.concatMap (moduleName: extractModuleDrvs variantName moduleName) (builtins.attrNames variantSet)
-              else
-                [ ]
-            ) (builtins.attrNames linuxPkgs)
+            lib.concatMap
+              (variant:
+                let s = linuxPkgs.${variant} or { };
+                in if builtins.isAttrs s
+                then lib.concatMap (mod: extractModuleDrvs variant mod) (builtins.attrNames s)
+                else [ ]
+              )
+              (builtins.attrNames linuxPkgs)
           );
 
-          allCombined = flatPackages // allNested;
-          partitioned = lib.filterAttrs (name: value: value != "error") allCombined;
+          all = lib.filterAttrs (_: v: v != null) (flatPackages // allNested);
         in
         {
-          kernels = lib.filterAttrs (
-            name: _value: (lib.strings.hasInfix "linux_cachyos" name) || (lib.strings.hasInfix ".kernel" name)
-          ) partitioned;
-
-          modules = lib.filterAttrs (name: _value: isCoreModule name) partitioned;
+          kernels = lib.filterAttrs
+            (name: _: lib.strings.hasInfix "linux_cachyos" name || lib.strings.hasInfix ".kernel" name)
+            all;
+          modules = lib.filterAttrs (_: isCoreModule) all;
         }
       );
 

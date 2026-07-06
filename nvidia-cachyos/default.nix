@@ -2,6 +2,7 @@
   final,
   prev,
   variant ? "stable",
+  linuxPackages ? null,
   ...
 }:
 
@@ -15,12 +16,7 @@ let
 
   updater = final.callPackage ./update.nix { inherit variant; };
 
-  # Select the appropriate CachyOS Linux packages based on the variant
-  cachyosLinuxPackages =
-    if variant == "stable" then
-      final.linuxPackages_cachyos
-    else
-      final."linuxPackages_cachyos-${variant}";
+  cachyosLinuxPackages = linuxPackages;
 
   # Mirrors the logic in pkgs/linux-cachyos/lib/llvm-module-overlay.nix
   fixNoVideo =

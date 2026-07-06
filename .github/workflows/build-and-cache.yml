@@ -111,13 +111,11 @@ jobs:
       matrix:
         package: ${{ fromJson(needs.prepare.outputs.kernels_matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
+      - uses: jlumbroso/free-disk-space@main
 
-      - name: Add Swap Space
-        uses: pierotofy/set-swap-space@master
+      - uses: pierotofy/set-swap-space@master
         with:
           swap-size-gb: 20
 
@@ -128,8 +126,7 @@ jobs:
             accept-flake-config = true
             access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
-      - name: Setup noci cache
-        uses: lonerOrz/noci/action@main
+      - uses: lonerOrz/noci/action@main
         with:
           repo: ${{ github.repository }}
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
@@ -148,13 +145,11 @@ jobs:
       matrix:
         package: ${{ fromJson(needs.prepare.outputs.modules_matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
+      - uses: jlumbroso/free-disk-space@main
 
-      - name: Add Swap Space
-        uses: pierotofy/set-swap-space@master
+      - uses: pierotofy/set-swap-space@master
         with:
           swap-size-gb: 20
 
@@ -165,8 +160,7 @@ jobs:
             accept-flake-config = true
             access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
-      - name: Setup noci cache
-        uses: lonerOrz/noci/action@main
+      - uses: lonerOrz/noci/action@main
         with:
           repo: ${{ github.repository }}
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}

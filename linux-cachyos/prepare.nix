@@ -120,11 +120,14 @@ let
     ++ ticksHzConfig
     ++ tickRateConfig
     ++ preemptConfig
-    ++ ccHarderConfig
     ++ hugePagesConfig
     ++ qrCodePanicConfig
-    ++ autoFDOConfig
-    ++ propellerConfig
+    ++ lib.optionals ccHarder [
+      "-d CC_OPTIMIZE_FOR_PERFORMANCE"
+      "-e CC_OPTIMIZE_FOR_PERFORMANCE_O3"
+    ]
+    ++ lib.optionals autoFDO [ "-e AUTOFDO_CLANG" ]
+    ++ lib.optionals propeller [ "-e PROPELLER_CLANG" ]
     ++ damonConfig
     ++ ntSyncConfig
     ++ hdrConfig
@@ -316,30 +319,6 @@ let
     else
       [ ];
 
-  ccHarderConfig =
-    if cachyConfig.ccHarder then
-      [
-        "-d CC_OPTIMIZE_FOR_PERFORMANCE"
-        "-e CC_OPTIMIZE_FOR_PERFORMANCE_O3"
-      ]
-    else
-      [ ];
-
-  autoFDOConfig =
-    if cachyConfig.autoFDO then
-      [
-        "-e AUTOFDO_CLANG"
-      ]
-    else
-      [ ];
-
-  propellerConfig =
-    if cachyConfig.propeller then
-      [
-        "-e PROPELLER_CLANG"
-      ]
-    else
-      [ ];
 
   # _hugepage, defaults to "always"
   hugePagesConfig =

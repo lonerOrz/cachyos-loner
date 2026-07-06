@@ -24,7 +24,6 @@
   withPrivateHDR ? false,
   withDAMON ? false,
   withNTSync ? true,
-  withoutDebug ? false,
   description ? "Linux EEVDF-BORE scheduler Kernel by CachyOS with other patches and improvements",
   inputs,
 }:
@@ -41,6 +40,10 @@ let
 
   nullIfEmpty = str: if str == "" then null else str;
 
+  # Config vars that are Nix-incompatible (need interactive TUI/GUI, running system, or /proc):
+  #   _makenconfig, _makexconfig, _localmodcfg, _localmodcfg_path, _use_current
+  # Config vars handled elsewhere (overlay suffix or separate packages):
+  #   _use_lto_suffix, _use_gcc_suffix, _build_zfs, _build_nvidia_open, _build_r8125
   cachyConfig = {
     inherit
       taste
@@ -49,7 +52,6 @@ let
       withPrivateHDR
       withDAMON
       withNTSync
-      withoutDebug
       description
       ;
 
@@ -66,7 +68,10 @@ let
     preempt = cachyVars."_preempt";
     hugePages = cachyVars."_hugepage";
     autoFDO = yesOrNo (cachyVars."_autofdo" or "no");
+    autoFDOProfileName = cachyVars."_autofdo_profile_name" or "";
     propeller = yesOrNo (cachyVars."_propeller" or "no");
+    propellerProfiles = cachyVars."_propeller_profiles" or "no";
+    withoutDebug = !(yesOrNo (cachyVars."_build_debug" or "no"));
   };
 
   dropAttrsUpdateScript = builtins.mapAttrs (
@@ -130,14 +135,10 @@ let
       stdenv
       kconfigToNix
       commonMakeFlags
-      utils
       ;
     kernelPatches = [ ];
     configfile = preparedConfigfile;
     config = linuxConfigTransformed;
-    # For tests
-    inherit (inputs) flakes final;
-    kernelPackages = basePackages;
   };
 
   kernelWithUpdateScript = kernel.overrideAttrs (prevAttrs: {
@@ -234,9 +235,20 @@ let
   ];
 
   packagesWithoutUpdateScript = dropAttrsUpdateScript packagesWithRemovals;
-  packagesWithRightPlatforms = utils.setAttrsPlatforms supportedPlatforms packagesWithoutUpdateScript;
+  packagesWithRightPlatforms = builtins.mapAttrs (
+    _k: v:
+    if (v ? "overrideAttrs") then
+      v.overrideAttrs (prevAttrs: {
+        meta = (prevAttrs.meta or { }) // {
+          platforms = lib.lists.intersectLists (prevAttrs.meta.platforms or [ ]) supportedPlatforms;
+          badPlatforms = [ ];
+        };
+      })
+    else
+      v
+  ) packagesWithoutUpdateScript;
 
-  versionSuffix = "+C${utils.shorter versions.config.rev}+P${utils.shorter versions.patches.rev}";
+  versionSuffix = "+C${builtins.substring 0 7 versions.config.rev}+P${builtins.substring 0 7 versions.patches.rev}";
 in
 packagesWithRightPlatforms
 // {

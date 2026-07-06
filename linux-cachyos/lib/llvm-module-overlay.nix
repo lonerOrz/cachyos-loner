@@ -6,7 +6,7 @@ kernel: _finalModules: prevModules:
 
 let
   projectUtils = import ../../utils.nix { lib = final.lib; };
-  inherit (projectUtils) markBroken overrideFull multiOverride removeByPrefix;
+  inherit (projectUtils) markBroken overrideFull multiOverride;
 
   fixNoVideo =
     prevDrv:
@@ -74,7 +74,7 @@ with prevModules;
   perf = markBroken perf;
 
   ryzen-smu = prevModules.ryzen-smu.overrideAttrs (prevAttrs: {
-    makeFlags = (removeByPrefix "CC=" prevAttrs.makeFlags) ++ kernel.commonMakeFlags;
+    makeFlags = (builtins.filter (s: builtins.substring 0 3 s != "CC=") prevAttrs.makeFlags) ++ kernel.commonMakeFlags;
   });
 
   virtualbox =

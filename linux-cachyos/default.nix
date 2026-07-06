@@ -207,13 +207,4 @@ in
 
     packagesExtend = preventBuildingKernelModules;
   };
-
-  zfs = final.zfs_2_4.overrideAttrs (prevAttrs: {
-    src = if isUnsupported then brokenReplacement else gccKernel.zfs_cachyos.src;
-    patches = [ ];
-    passthru = prevAttrs.passthru // {
-      kernelModuleAttribute = "zfs_cachyos";
-    };
-    postPatch = builtins.replaceStrings [ "grep --quiet '^Linux-M" ] [ "# " ] prevAttrs.postPatch;
-  });
 }

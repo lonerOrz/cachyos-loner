@@ -3,19 +3,12 @@
   kconfigToNix,
   config,
   configfile,
-  utils,
   lib,
   linuxManualConfig,
   stdenv,
   commonMakeFlags,
   # Weird injections
   kernelPatches ? [ ],
-  features ? null,
-  randstructSeed ? "",
-  # For tests
-  kernelPackages,
-  flakes,
-  final,
 }:
 let
   version = cachyConfig.versions.linux.version;
@@ -24,8 +17,6 @@ in
   inherit
     stdenv
     version
-    features
-    randstructSeed
     ;
   inherit (configfile) src;
   modDirVersion = lib.versions.pad 3 "${version}${cachyConfig.versions.suffix}";
@@ -64,12 +55,5 @@ in
         isZen = true;
         isHardened = cachyConfig.cpuSched == "hardened";
         isLibre = false;
-        tests = (prevAttrs.passthru.tests or { }) // {
-          plymouth = import ./test.nix {
-            inherit kernelPackages;
-            inherit (flakes) nixpkgs;
-            rootFlake = flakes.self;
-          } final;
-        };
       };
   })
