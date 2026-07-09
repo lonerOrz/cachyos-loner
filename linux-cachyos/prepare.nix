@@ -58,14 +58,21 @@ let
       ]
       ++ lib.optionals (cachyConfig.cpuSched == "cachyos" && version != "6.17-rc1") [
         (
-          if
-            lib.versionAtLeast version "6.18.35"
-            && toString (cachyConfig.versions.linux.tagrel or "") == "1"
-            && cachyConfig.taste == "linux-cachyos-lts"
-          then
-            "${./patches/0001-bore-cachy.patch}"
-          else
-            "${patches-src}/${majorMinor}/sched/0001-bore-cachy.patch"
+      if
+        lib.versionAtLeast version "6.18.35"
+        && toString (cachyConfig.versions.linux.tagrel or "") == "1"
+        && cachyConfig.taste == "linux-cachyos-lts"
+      then
+        "${./patches/0001-bore-cachy.patch}"
+      else if
+        lib.versionAtLeast version "7.2-rc2"
+        && lib.versionOlder version "7.3"
+        && toString (cachyConfig.versions.linux.tagrel or "") == "3"
+        && cachyConfig.taste == "linux-cachyos-rc"
+      then
+        "${./patches/0001-bore-cachy-rc.patch}"
+      else
+        "${patches-src}/${majorMinor}/sched/0001-bore-cachy.patch"
         )
       ]
     else if (cachyConfig.cpuSched == "rt-bore") then
