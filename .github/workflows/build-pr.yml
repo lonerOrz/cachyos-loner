@@ -84,7 +84,6 @@ jobs:
     if: needs.detect.outputs.run_build == 'true' && needs.detect.outputs.kernels != '[]'
     strategy:
       fail-fast: false
-      max-parallel: 3
       matrix:
         package: ${{ fromJson(needs.detect.outputs.kernels) }}
     runs-on: ubuntu-latest
@@ -121,7 +120,6 @@ jobs:
     if: ${{ !failure() && !cancelled() && needs.detect.outputs.run_build == 'true' && needs.detect.outputs.modules != '[]' }}
     strategy:
       fail-fast: false
-      max-parallel: 4
       matrix:
         package: ${{ fromJson(needs.detect.outputs.modules) }}
     runs-on: ubuntu-latest
