@@ -116,15 +116,9 @@
         let
           overlayPkgs = overlayFor system;
         in
-        {
-          linuxPackages_cachyos-gcc = overlayPkgs.linuxPackages_cachyos-gcc;
-          linuxPackages_cachyos-lto = overlayPkgs.linuxPackages_cachyos-lto;
-          linuxPackages_cachyos-lto-znver4 = overlayPkgs.linuxPackages_cachyos-lto-znver4;
-          linuxPackages_cachyos-server = overlayPkgs.linuxPackages_cachyos-server;
-          linuxPackages_cachyos-hardened = overlayPkgs.linuxPackages_cachyos-hardened;
-          linuxPackages_cachyos-rc = overlayPkgs.linuxPackages_cachyos-rc;
-          linuxPackages_cachyos-lts = overlayPkgs.linuxPackages_cachyos-lts;
-        }
+        lib.filterAttrs
+          (n: _: lib.strings.hasPrefix "linuxPackages_cachyos-" n)
+          overlayPkgs
       );
 
       needCacheDrvs = forAllSystems (
