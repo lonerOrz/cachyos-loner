@@ -180,7 +180,7 @@
           kernels = lib.filterAttrs
             (name: _: lib.strings.hasInfix "linux_cachyos" name || lib.strings.hasInfix ".kernel" name)
             all;
-          modules = lib.filterAttrs (_: isCoreModule) all;
+          modules = lib.filterAttrs (name: _: isCoreModule name) all;
         }
       );
 
