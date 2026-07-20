@@ -185,7 +185,7 @@ let
       _finalNV: _prevNV: {
         cachyos =
           let
-            suffix = lib.strings.removePrefix "linux-cachyos" taste;
+            suffix = if stdenv.cc.isClang then "-lto" else lib.strings.removePrefix "linux-cachyos" taste;
             attrName = "nvidia_cachyos${suffix}";
           in
           if inputs.final ? ${attrName} then
