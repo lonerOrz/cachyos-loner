@@ -56,8 +56,12 @@ jobs:
             --argjson base "$BASE_JSON" \
             '
               $pr.kernels | to_entries
-              | map(select(.value != $base.kernels[.key] or .value == "error" or $base.kernels[.key] == "error"))
-              | group_by(.value) | map(.[0].key)
+              | map(select(
+                  .value.drvPath != $base.kernels[.key].drvPath or
+                  .value.drvPath == null or
+                  $base.kernels[.key].drvPath == null
+              ))
+              | group_by(.value.drvPath) | map(.[0].key)
             ' -c)
 
           MODULES=$(jq -n \
@@ -65,8 +69,12 @@ jobs:
             --argjson base "$BASE_JSON" \
             '
               $pr.modules | to_entries
-              | map(select(.value != $base.modules[.key] or .value == "error" or $base.modules[.key] == "error"))
-              | group_by(.value) | map(.[0].key)
+              | map(select(
+                  .value.drvPath != $base.modules[.key].drvPath or
+                  .value.drvPath == null or
+                  $base.modules[.key].drvPath == null
+              ))
+              | group_by(.value.drvPath) | map(.[0].key)
             ' -c)
 
           if [ "$KERNELS" = "[]" ] && [ "$MODULES" = "[]" ]; then

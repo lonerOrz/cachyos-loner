@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   check:
+    # Keep in sync with flavors.nix — the single source of truth for variant names.
     strategy:
       matrix:
         variant: [gcc, lto, lto-znver4, server, hardened, lts, rc]
@@ -43,6 +44,7 @@ jobs:
       - name: Verify Kernel Configuration and Patches
         run: nix build .#linux_cachyos-${{ matrix.variant }}.configfile -L --impure
 
+  # Variant → checked-in config-nix file. Keep in sync with config-nix/ directory.
   config-nix-check:
     strategy:
       matrix:

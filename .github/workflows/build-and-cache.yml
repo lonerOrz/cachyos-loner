@@ -21,6 +21,10 @@ on:
       rc:
         type: boolean
         default: true
+      lto-znver4:
+        description: "Zen4-specific LTO variant"
+        type: boolean
+        default: true
       run_gc:
         description: "Run Garbage Collection after build"
         type: boolean
@@ -58,6 +62,7 @@ jobs:
           [[ "${{ inputs.hardened }}" == "true" ]] && ENABLED_VARIANTS+=("hardened")
           [[ "${{ inputs.lts }}" == "true" ]] && ENABLED_VARIANTS+=("lts")
           [[ "${{ inputs.rc }}" == "true" ]] && ENABLED_VARIANTS+=("rc")
+          [[ "${{ inputs.lto-znver4 }}" == "true" ]] && ENABLED_VARIANTS+=("lto-znver4")
 
           ENABLED_JSON=$(jq -n --args '$ARGS.positional' -- "${ENABLED_VARIANTS[@]}" -c)
 
@@ -66,14 +71,8 @@ jobs:
             --argjson enabled "$ENABLED_JSON" \
             '
               $all.kernels | to_entries
-              | map(select(
-                  .key as $k |
-                  $enabled[] as $var |
-                  ($k | contains("-" + $var)) or
-                  ($k | contains("cachyos-" + $var)) or
-                  ($var == "gcc" and (($k | split(".") | last) == "linux_cachyos"))
-              ))
-              | group_by(.value) | map(.[0].key)
+              | map(select(.value.variant as $v | $enabled | index($v)))
+              | group_by(.value.drvPath) | map(.[0].key)
             ' -c)
 
           MODULES=$(jq -n \
@@ -81,21 +80,8 @@ jobs:
             --argjson enabled "$ENABLED_JSON" \
             '
               $all.modules | to_entries
-              | map(select(
-                  .key as $k |
-                  $enabled[] as $var |
-                  ($k | contains("-" + $var)) or
-                  ($k | contains("cachyos-" + $var)) or
-                  ($var == "gcc" and (
-                    ($k | split(".")) as $parts |
-                    $parts[0] == "packages" and (
-                      $parts[2] == "nvidia_cachyos" or
-                      $parts[2] == "nvidia_cachyos-open" or
-                      $parts[2] == "zfs_cachyos"
-                    )
-                  ))
-              ))
-              | group_by(.value) | map(.[0].key)
+              | map(select(.value.variant as $v | $enabled | index($v)))
+              | group_by(.value.drvPath) | map(.[0].key)
             ' -c)
 
           printf 'kernels=%s\n' "$KERNELS" >> "$GITHUB_OUTPUT"
@@ -169,7 +155,7 @@ jobs:
 
   cleanup:
     needs: [build-kernels, build-modules]
-    if: always() && (github.event.inputs.run_gc == 'true' || github.event_name == 'push')
+    if: always() && github.event.inputs.run_gc == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Install Nix

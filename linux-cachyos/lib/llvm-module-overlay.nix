@@ -74,7 +74,9 @@ with prevModules;
   perf = markBroken perf;
 
   ryzen-smu = prevModules.ryzen-smu.overrideAttrs (prevAttrs: {
-    makeFlags = (builtins.filter (s: builtins.substring 0 3 s != "CC=") prevAttrs.makeFlags) ++ kernel.commonMakeFlags;
+    makeFlags =
+      (builtins.filter (s: builtins.substring 0 3 s != "CC=") prevAttrs.makeFlags)
+      ++ kernel.commonMakeFlags;
   });
 
   virtualbox =

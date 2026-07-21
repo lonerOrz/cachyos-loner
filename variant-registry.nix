@@ -43,65 +43,69 @@ let
   variantNames = builtins.attrNames variantMeta;
 
   linuxKernelAttrs = builtins.listToAttrs (
-    lib.concatMap
-      (
-        name:
-        let
-          attrs = variantMeta.${name};
-          pkg = cachyosPackages."cachyos-${name}";
-        in
-        [
-          {
-            name = "linuxPackages_cachyos-${name}";
-            value = pkg;
-          }
-          {
-            name = "linux_cachyos-${name}";
-            value = if attrs ? kernelDropUpdate then dropUpdate pkg.kernel else pkg.kernel;
-          }
-        ]
-        ++ lib.optionals (attrs ? kernelAlias) [
-          {
-            name = "linuxPackages_cachyos";
-            value = pkg;
-          }
-          {
-            name = attrs.kernelAlias;
-            value = if attrs ? kernelDropUpdate then dropUpdate pkg.kernel else pkg.kernel;
-          }
-        ]
-      )
-      variantNames
+    lib.concatMap (
+      name:
+      let
+        attrs = variantMeta.${name};
+        pkg = cachyosPackages."cachyos-${name}";
+      in
+      [
+        {
+          name = "linuxPackages_cachyos-${name}";
+          value = pkg;
+        }
+        {
+          name = "linux_cachyos-${name}";
+          value = if attrs ? kernelDropUpdate then dropUpdate pkg.kernel else pkg.kernel;
+        }
+      ]
+      ++ lib.optionals (attrs ? kernelAlias) [
+        {
+          name = "linuxPackages_cachyos";
+          value = pkg;
+        }
+        {
+          name = attrs.kernelAlias;
+          value = if attrs ? kernelDropUpdate then dropUpdate pkg.kernel else pkg.kernel;
+        }
+      ]
+    ) variantNames
   );
 
   nvidiaKernelAttrs = builtins.listToAttrs (
-    lib.concatMap
-      (
-        name:
-        let
-          meta = variantMeta.${name};
-          pkg = cachyosPackages."cachyos-${name}";
-          variantArg = { variant = meta.nvidiaVariant; };
-        in
-        [
-          {
-            name = "nvidia_cachyos-${name}";
-            value =
-              let drv = callOverride ./nvidia-cachyos (variantArg // { linuxPackages = pkg; });
-              in if meta ? nvidiaDropUpdate then dropUpdate drv else drv;
-          }
-          {
-            name = "nvidia_cachyos-${name}-open";
-            value = dropUpdate (callOverride ./nvidia-cachyos (variantArg // { linuxPackages = pkg; })).open;
-          }
-        ]
-      )
-      variantNames
+    lib.concatMap (
+      name:
+      let
+        meta = variantMeta.${name};
+        pkg = cachyosPackages."cachyos-${name}";
+        variantArg = {
+          variant = meta.nvidiaVariant;
+        };
+      in
+      [
+        {
+          name = "nvidia_cachyos-${name}";
+          value =
+            let
+              drv = callOverride ./nvidia-cachyos (variantArg // { linuxPackages = pkg; });
+            in
+            if meta ? nvidiaDropUpdate then dropUpdate drv else drv;
+        }
+        {
+          name = "nvidia_cachyos-${name}-open";
+          value = dropUpdate (callOverride ./nvidia-cachyos (variantArg // { linuxPackages = pkg; })).open;
+        }
+      ]
+    ) variantNames
   );
 
   topLevelNvidia = {
-    nvidia_cachyos = dropUpdate (callOverride ./nvidia-cachyos { linuxPackages = cachyosPackages."cachyos-gcc"; });
-    nvidia_cachyos-open = dropUpdate (callOverride ./nvidia-cachyos { linuxPackages = cachyosPackages."cachyos-gcc"; }).open;
+    nvidia_cachyos = dropUpdate (
+      callOverride ./nvidia-cachyos { linuxPackages = cachyosPackages."cachyos-gcc"; }
+    );
+    nvidia_cachyos-open =
+      dropUpdate
+        (callOverride ./nvidia-cachyos { linuxPackages = cachyosPackages."cachyos-gcc"; }).open;
   };
 
   zfs = {

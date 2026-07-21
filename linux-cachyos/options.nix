@@ -4,22 +4,51 @@ let
   # 枚举型 tunable：值 → scripts/config flag 列表
   enumFlags = {
     mArch = {
-      NATIVE = [ "-d GENERIC_CPU" "-d MZEN4" "-e X86_NATIVE_CPU" ];
-      ZEN4 = [ "-d GENERIC_CPU" "-e MZEN4" "-d X86_NATIVE_CPU" ];
+      NATIVE = [
+        "-d GENERIC_CPU"
+        "-d MZEN4"
+        "-e X86_NATIVE_CPU"
+      ];
+      ZEN4 = [
+        "-d GENERIC_CPU"
+        "-e MZEN4"
+        "-d X86_NATIVE_CPU"
+      ];
     };
     cpuSched = {
-      cachyos = [ "-e SCHED_BORE" "-e SCHED_CLASS_EXT" ];
+      cachyos = [
+        "-e SCHED_BORE"
+        "-e SCHED_CLASS_EXT"
+      ];
       "sched-ext" = [ "-e SCHED_CLASS_EXT" ];
       bore = [ "-e SCHED_BORE" ];
       hardened = [ "-e SCHED_BORE" ];
-      bmq = [ "-e SCHED_ALT" "-e SCHED_BMQ" ];
+      bmq = [
+        "-e SCHED_ALT"
+        "-e SCHED_BMQ"
+      ];
       eevdf = [ ];
       rt = [ "-e PREEMPT_RT" ];
-      "rt-bore" = [ "-e SCHED_BORE" "-e PREEMPT_RT" ];
+      "rt-bore" = [
+        "-e SCHED_BORE"
+        "-e PREEMPT_RT"
+      ];
     };
     tickRate = {
-      periodic = [ "-d NO_HZ_IDLE" "-d NO_HZ_FULL" "-d NO_HZ" "-d NO_HZ_COMMON" "-e HZ_PERIODIC" ];
-      idle = [ "-d HZ_PERIODIC" "-d NO_HZ_FULL" "-e NO_HZ_IDLE" "-e NO_HZ" "-e NO_HZ_COMMON" ];
+      periodic = [
+        "-d NO_HZ_IDLE"
+        "-d NO_HZ_FULL"
+        "-d NO_HZ"
+        "-d NO_HZ_COMMON"
+        "-e HZ_PERIODIC"
+      ];
+      idle = [
+        "-d HZ_PERIODIC"
+        "-d NO_HZ_FULL"
+        "-e NO_HZ_IDLE"
+        "-e NO_HZ"
+        "-e NO_HZ_COMMON"
+      ];
       full = [
         "-d HZ_PERIODIC"
         "-d NO_HZ_IDLE"
@@ -32,13 +61,29 @@ let
       ];
     };
     preempt = {
-      full = [ "-e PREEMPT" "-d PREEMPT_LAZY" ];
-      lazy = [ "-d PREEMPT" "-e PREEMPT_LAZY" ];
-      server = [ "-e PREEMPT_NONE" "-d PREEMPT_LAZY" "-d PREEMPT" ];
+      full = [
+        "-e PREEMPT"
+        "-d PREEMPT_LAZY"
+      ];
+      lazy = [
+        "-d PREEMPT"
+        "-e PREEMPT_LAZY"
+      ];
+      server = [
+        "-e PREEMPT_NONE"
+        "-d PREEMPT_LAZY"
+        "-d PREEMPT"
+      ];
     };
     hugePages = {
-      always = [ "-d TRANSPARENT_HUGEPAGE_MADVISE" "-e TRANSPARENT_HUGEPAGE_ALWAYS" ];
-      madvise = [ "-d TRANSPARENT_HUGEPAGE_ALWAYS" "-e TRANSPARENT_HUGEPAGE_MADVISE" ];
+      always = [
+        "-d TRANSPARENT_HUGEPAGE_MADVISE"
+        "-e TRANSPARENT_HUGEPAGE_ALWAYS"
+      ];
+      madvise = [
+        "-d TRANSPARENT_HUGEPAGE_ALWAYS"
+        "-e TRANSPARENT_HUGEPAGE_MADVISE"
+      ];
     };
     lto = {
       thin = [ "-e LTO_CLANG_THIN" ];
@@ -50,7 +95,10 @@ let
 
   # 布尔型 toggle：开启 → flag 列表
   toggleFlags = {
-    ccHarder = [ "-d CC_OPTIMIZE_FOR_PERFORMANCE" "-e CC_OPTIMIZE_FOR_PERFORMANCE_O3" ];
+    ccHarder = [
+      "-d CC_OPTIMIZE_FOR_PERFORMANCE"
+      "-e CC_OPTIMIZE_FOR_PERFORMANCE_O3"
+    ];
     autoFDO = [ "-e AUTOFDO_CLANG" ];
     propeller = [ "-e PROPELLER_CLANG" ];
     withDAMON = [
@@ -64,7 +112,11 @@ let
     ];
     withNTSync = [ "-m NTSYNC" ];
     withPrivateHDR = [ "-e AMD_PRIVATE_COLOR" ];
-    useKCFI = [ "-e ARCH_SUPPORTS_CFI_CLANG" "-e CFI_CLANG" "-e CFI_AUTO_DEFAULT" ];
+    useKCFI = [
+      "-e ARCH_SUPPORTS_CFI_CLANG"
+      "-e CFI_CLANG"
+      "-e CFI_AUTO_DEFAULT"
+    ];
   };
 
   qrCodePanic = [
@@ -83,7 +135,8 @@ let
     "-e PER_VMA_LOCK"
     "-d PER_VMA_LOCK_STATS"
     "-d CONFIG_SECURITY_TOMOYO"
-  ] ++ qrCodePanic;
+  ]
+  ++ qrCodePanic;
 
   bbrFlags = [
     "-m TCP_CONG_CUBIC"
@@ -119,9 +172,16 @@ let
   ticksHzFlags =
     n:
     if n == 300 then
-      [ "-e HZ_300" "--set-val HZ 300" ]
+      [
+        "-e HZ_300"
+        "--set-val HZ 300"
+      ]
     else
-      [ "-d HZ_300" "--set-val HZ ${toString n}" "-e HZ_${toString n}" ];
+      [
+        "-d HZ_300"
+        "--set-val HZ ${toString n}"
+        "-e HZ_${toString n}"
+      ];
 
   # mArch 特例：GENERIC_V[1-4] 需解析版本号
   archFlags =
@@ -160,7 +220,10 @@ let
       ];
       debugOff = lib.optionals (
         (c.withoutDebug or false)
-        && !(builtins.elem (c.cpuSched or "cachyos") [ "sched-ext" "cachyos" ])
+        && !(builtins.elem (c.cpuSched or "cachyos") [
+          "sched-ext"
+          "cachyos"
+        ])
       ) debugOffFlags;
     in
     base

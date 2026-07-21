@@ -85,7 +85,7 @@ def run_cmd(cmd, log_file=None, timeout=None):
             text=True,
             bufsize=1,
             env=env,
-            preexec_fn=os.setsid if os.name != "nt" else None
+            preexec_fn=os.setsid if os.name != "nt" else None,
         )
 
         for line in process.stdout:
@@ -98,7 +98,9 @@ def run_cmd(cmd, log_file=None, timeout=None):
             raise subprocess.CalledProcessError(ret, cmd)
 
     except (subprocess.TimeoutExpired, KeyboardInterrupt):
-        print(f"  │ {Log.c('Killing process group due to timeout/interrupt...', Log.RED)}")
+        print(
+            f"  │ {Log.c('Killing process group due to timeout/interrupt...', Log.RED)}"
+        )
         if os.name != "nt":
             os.killpg(os.getpgid(process.pid), signal.SIGKILL)
         else:
@@ -110,23 +112,8 @@ def run_cmd(cmd, log_file=None, timeout=None):
 
 
 def get_all_package_info():
-    expr = f'''
-      let
-        flake = builtins.getFlake "{FLAKE_REF}";
-        pkgs = flake.packages.x86_64-linux;
-        packageInfo = name: let
-          passthru = pkgs.${{name}}.passthru or {{}};
-          updateScript = pkgs.${{name}}.updateScript or passthru.updateScript or null;
-          isDrv = if updateScript == null then false
-                  else (updateScript.type or "") == "derivation";
-        in {{
-          autoUpdate = (passthru.autoUpdate or true) != false;
-          isDerivation = isDrv;
-          updateScript = updateScript;
-          updateArgs = passthru.updateArgs or [];
-        }};
-      in builtins.mapAttrs (name: _: packageInfo name) pkgs
-    '''
+    expr_path = REPO_ROOT / ".github" / "scripts" / "package-info.nix"
+    expr = f'import {expr_path} {{ flakeRef = "{FLAKE_REF}"; }}'
     try:
         result = subprocess.run(
             ["nix", "eval", "--expr", expr, "--json", "--impure"],
@@ -175,10 +162,6 @@ def update_package(pkg_name, info, extra_args, log_dir) -> dict:
         Log.skip(f"{pkg_name} (autoUpdate=false)")
         return {"name": pkg_name, "status": "SKIP", "msg": "autoUpdate=false"}
 
-    pkg_dir = (REPO_ROOT / "pkgs" / pkg_name).resolve()
-    if not pkg_dir.exists():
-        pkg_dir = REPO_ROOT
-
     log_file = get_log_file(log_dir, pkg_name)
     args = info.get("updateArgs", []) + extra_args
 
@@ -193,13 +176,13 @@ def update_package(pkg_name, info, extra_args, log_dir) -> dict:
         script = info.get("updateScript")
         is_nixpkgs_nix_update = False
         if script is not None:
-            cmd_str = ' '.join(script) if isinstance(script, list) else str(script)
+            cmd_str = " ".join(script) if isinstance(script, list) else str(script)
             if "nix-update" in cmd_str:
                 is_nixpkgs_nix_update = True
 
         if script is not None and not is_nixpkgs_nix_update:
             Log.run(f"Updating {pkg_name} via custom script...")
-            run_update_script(script, pkg_dir, pkg_name, args, log_file)
+            run_update_script(script, REPO_ROOT, pkg_name, args, log_file)
             Log.ok(f"{pkg_name} script updated")
             return {"name": pkg_name, "status": "OK", "msg": "script updated"}
 
@@ -251,11 +234,19 @@ def print_summary(results):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--package", help="Update only a specific package")
-    parser.add_argument("--commit", action="store_true", help="Commit changes after update")
+    parser.add_argument(
+        "--commit", action="store_true", help="Commit changes after update"
+    )
     parser.add_argument("--test", action="store_true", help="Run tests after update")
-    parser.add_argument("--build", action="store_true", help="Build package after update")
-    parser.add_argument("--log-dir", default=".logs/update", help="Directory to store logs")
-    parser.add_argument("extra_args", nargs="*", help="Extra arguments to pass to update scripts")
+    parser.add_argument(
+        "--build", action="store_true", help="Build package after update"
+    )
+    parser.add_argument(
+        "--log-dir", default=".logs/update", help="Directory to store logs"
+    )
+    parser.add_argument(
+        "extra_args", nargs="*", help="Extra arguments to pass to update scripts"
+    )
 
     args = parser.parse_args()
 
@@ -277,7 +268,9 @@ def main():
     results = []
     if args.package:
         if args.package in all_info:
-            res = update_package(args.package, all_info[args.package], extra_args, log_dir)
+            res = update_package(
+                args.package, all_info[args.package], extra_args, log_dir
+            )
             results.append(res)
         else:
             Log.fail(f"Unknown package: {args.package}")

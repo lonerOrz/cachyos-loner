@@ -30,19 +30,19 @@ git hashes, and the generated `config-nix/*.nix` / `config-vars/*.json` snapshot
 
 ## Project structure
 
-| File | Role |
-|---|---|
-| `flake.nix` | overlay + `packages` / `legacyPackages` / `needCacheDrvs` |
-| `linux-cachyos/flavors.nix` | **single source of truth** for per-flavor build config (taste, configPath, cachyVars, versions, updateConfig, packagesExtend) |
-| `linux-cachyos/options.nix` | CachyOS Kconfig flag tables; `buildPkgbuildConfig` assembles the `scripts/config` flag list |
-| `linux-cachyos/prepare.nix` | fetches kernel/patches/config/zfs; generates `.config`; `kernelPatches`; `extraVerPatch` (`EXTRAVERSION=-cachyos`) |
-| `linux-cachyos/kernel.nix` | calls `linuxManualConfig` (mirrors nixpkgs `build.nix`); sets `modDirVersion` / `isLTS` / `features` |
-| `linux-cachyos/packages-for.nix` | builds the package set (kernel, zfs, nvidiaPackages wiring, LTO module overlay); imports nixpkgs `common-flags.nix` by path |
-| `linux-cachyos/default.nix` | `mapAttrs` over `flavors.nix` → the 7 flavors |
-| `linux-cachyos/variant-registry.nix` | `variantMeta` table → exposes `linuxPackages_cachyos-*` / `linux_cachyos-*` / `nvidia_cachyos-*` / `zfs_cachyos` |
-| `linux-cachyos/lib/{llvm-pkgs,llvm-module-overlay}.nix` | clang/LTO stdenv + out-of-tree module overrides |
-| `nvidia-cachyos/default.nix` | `mkDriver` wrapper (mirrors nixpkgs `nvidia-x11/generic.nix`) |
-| `linux-cachyos/update.nix`, `nvidia-cachyos/update.nix` | version/hash bumpers |
+| File                                                    | Role                                                                                                                          |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `flake.nix`                                             | overlay + `packages` / `legacyPackages` / `needCacheDrvs`                                                                     |
+| `linux-cachyos/flavors.nix`                             | **single source of truth** for per-flavor build config (taste, configPath, cachyVars, versions, updateConfig, packagesExtend) |
+| `linux-cachyos/options.nix`                             | CachyOS Kconfig flag tables; `buildPkgbuildConfig` assembles the `scripts/config` flag list                                   |
+| `linux-cachyos/prepare.nix`                             | fetches kernel/patches/config/zfs; generates `.config`; `kernelPatches`; `extraVerPatch` (`EXTRAVERSION=-cachyos`)            |
+| `linux-cachyos/kernel.nix`                              | calls `linuxManualConfig` (mirrors nixpkgs `build.nix`); sets `modDirVersion` / `isLTS` / `features`                          |
+| `linux-cachyos/packages-for.nix`                        | builds the package set (kernel, zfs, nvidiaPackages wiring, LTO module overlay); imports nixpkgs `common-flags.nix` by path   |
+| `linux-cachyos/default.nix`                             | `mapAttrs` over `flavors.nix` → the 7 flavors                                                                                 |
+| `linux-cachyos/variant-registry.nix`                    | `variantMeta` table → exposes `linuxPackages_cachyos-*` / `linux_cachyos-*` / `nvidia_cachyos-*` / `zfs_cachyos`              |
+| `linux-cachyos/lib/{llvm-pkgs,llvm-module-overlay}.nix` | clang/LTO stdenv + out-of-tree module overrides                                                                               |
+| `nvidia-cachyos/default.nix`                            | `mkDriver` wrapper (mirrors nixpkgs `nvidia-x11/generic.nix`)                                                                 |
+| `linux-cachyos/update.nix`, `nvidia-cachyos/update.nix` | version/hash bumpers                                                                                                          |
 
 ## CachyOS upstream sources (the real origins)
 
@@ -50,12 +50,12 @@ All `linux-cachyos` / `nvidia-cachyos` fetches come from these four repos.
 `versions*.json` (one per flavor) is the single source of truth for the
 rev/hash of each.
 
-| Repo | Role | Consumed by | `versions*.json` field |
-|---|---|---|---|
-| `CachyOS/linux` | kernel source tarball `cachyos-<ver>-<tagrel>.tar.gz` | `prepare.nix` `src` | `linux.version` / `linux.hash` / `linux.tagrel` |
-| `CachyOS/kernel-patches` | patch queue (`all/`,`sched/`,`misc/`) keyed by `<major>.<minor>` | `prepare.nix` `patches-src` | `patches.rev` / `patches.hash` |
-| `CachyOS/linux-cachyos` | per-flavor `.config` at `<taste>/config` | `prepare.nix` `config-src` | `config.rev` / `config.hash` |
-| `cachyos/zfs` | CachyOS zfs fork at a pinned commit | `packages-for.nix` zfs override | `zfs.rev` / `zfs.hash` |
+| Repo                     | Role                                                             | Consumed by                     | `versions*.json` field                          |
+| ------------------------ | ---------------------------------------------------------------- | ------------------------------- | ----------------------------------------------- |
+| `CachyOS/linux`          | kernel source tarball `cachyos-<ver>-<tagrel>.tar.gz`            | `prepare.nix` `src`             | `linux.version` / `linux.hash` / `linux.tagrel` |
+| `CachyOS/kernel-patches` | patch queue (`all/`,`sched/`,`misc/`) keyed by `<major>.<minor>` | `prepare.nix` `patches-src`     | `patches.rev` / `patches.hash`                  |
+| `CachyOS/linux-cachyos`  | per-flavor `.config` at `<taste>/config`                         | `prepare.nix` `config-src`      | `config.rev` / `config.hash`                    |
+| `cachyos/zfs`            | CachyOS zfs fork at a pinned commit                              | `packages-for.nix` zfs override | `zfs.rev` / `zfs.hash`                          |
 
 - **`tagrel` branch (kernel source):** every shipped flavor sets `tagrel`, so
   `prepare.nix` fetches the CachyOS release tarball (already sauced) and does
@@ -84,22 +84,22 @@ rev/hash of each.
   kernel `EXTRAVERSION`, which `prepare.nix` `extraVerPatch` appends `-cachyos`
   to (the fork tarballs ship an empty or `-rcN` `EXTRAVERSION`, so the result
   is `-cachyos` / `-rcN-cachyos`). Confirmed to match `uname -r`.
-- LTO kernels use `clangStdenv`, whose `/bin/ld` *is* `ld.lld` (see nixpkgs
+- LTO kernels use `clangStdenv`, whose `/bin/ld` _is_ `ld.lld` (see nixpkgs
   `bintools.nix`). Do **not** "fix" that — it is intentional.
 - `isLTS` is currently hardcoded `false` in `kernel.nix`; harmless metadata.
 
 ## NVIDIA build notes
 
-- **Hash contract** — `update.nix` hashes must match how nixpkgs *fetches*:
+- **Hash contract** — `update.nix` hashes must match how nixpkgs _fetches_:
   `.run` tarballs → `fetch_hash` (file); GitHub archives → `fetch_hash_unpack`
   (unpacked). Mismatch = fetch failure at build time.
 
-  | Field | nixpkgs fetch | `update.nix` |
-  |---|---|---|
-  | `hash` / `aarch64Hash` (`.run`) | `generic.nix` `fetchurl` (file) | `fetch_hash` |
-  | `openHash` | `kernel-modules.nix` `fetchFromGitHub {tag}` | `fetch_hash_unpack` |
-  | `settingsHash` | `settings.nix` `fetchFromGitHub {rev}` | `fetch_hash_unpack` |
-  | `persistencedHash` | `persistenced.nix` `fetchFromGitHub {rev}` | `fetch_hash_unpack` |
+  | Field                           | nixpkgs fetch                                | `update.nix`        |
+  | ------------------------------- | -------------------------------------------- | ------------------- |
+  | `hash` / `aarch64Hash` (`.run`) | `generic.nix` `fetchurl` (file)              | `fetch_hash`        |
+  | `openHash`                      | `kernel-modules.nix` `fetchFromGitHub {tag}` | `fetch_hash_unpack` |
+  | `settingsHash`                  | `settings.nix` `fetchFromGitHub {rev}`       | `fetch_hash_unpack` |
+  | `persistencedHash`              | `persistenced.nix` `fetchFromGitHub {rev}`   | `fetch_hash_unpack` |
 
 - Our 610.x open driver has the `NV_LINUX_OF_GPIO_H_PRESENT` compat shim, so it
   builds on 7.x kernels. The `linux/of_gpio.h` hard-include error only affects

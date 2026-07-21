@@ -23,7 +23,9 @@ let
 
   pkgsLLVM = import ./lib/llvm-pkgs.nix inputs;
 
-  preventBuildingKernelModules = _kernel: _final: prev: prev // { recurseForDerivations = false; };
+  preventBuildingKernelModules =
+    _kernel: _final: prev:
+    prev // { recurseForDerivations = false; };
 
   brokenReplacement = final.hello.overrideAttrs (prevAttrs: {
     meta = prevAttrs.meta // {
@@ -55,9 +57,22 @@ let
       );
 
   flavors = import ./flavors.nix {
-    inherit final lib pkgsLLVM ltoVars ltsVars rcVars serverVars hardenedVars
-      mainVersions ltsVersions rcVersions serverVersions hardenedVersions
-      preventBuildingKernelModules;
+    inherit
+      final
+      lib
+      pkgsLLVM
+      ltoVars
+      ltsVars
+      rcVars
+      serverVars
+      hardenedVars
+      mainVersions
+      ltsVersions
+      rcVersions
+      serverVersions
+      hardenedVersions
+      preventBuildingKernelModules
+      ;
   };
 in
 {

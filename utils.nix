@@ -1,4 +1,7 @@
-{ lib, nixpkgs ? null }:
+{
+  lib,
+  nixpkgs ? null,
+}:
 
 {
   markBroken =

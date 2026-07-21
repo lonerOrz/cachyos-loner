@@ -248,7 +248,9 @@ let
       v
   ) packagesWithoutUpdateScript;
 
-  versionSuffix = "+C${builtins.substring 0 7 versions.config.rev}+P${builtins.substring 0 7 versions.patches.rev}";
+  versionSuffix = "+C${builtins.substring 0 7 versions.config.rev}+P${
+    builtins.substring 0 7 versions.patches.rev
+  }";
 in
 packagesWithRightPlatforms
 // {
