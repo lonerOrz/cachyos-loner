@@ -25,13 +25,13 @@ jobs:
             access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
       - name: Checkout PR (Head)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: pr
           token: ${{ secrets.GH_TOKEN }}
 
       - name: Checkout Main (Base)
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.base_ref }}
           path: base
@@ -95,7 +95,7 @@ jobs:
         package: ${{ fromJson(needs.detect.outputs.kernels) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.GH_TOKEN }}
       - uses: jlumbroso/free-disk-space@main
@@ -126,7 +126,7 @@ jobs:
         include: ${{ fromJson(needs.detect.outputs.extras) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.GH_TOKEN }}
       - uses: jlumbroso/free-disk-space@main
