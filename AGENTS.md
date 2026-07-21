@@ -78,6 +78,51 @@ rev/hash of each.
 4. zfs: bump `zfs.{rev,hash}`, re-run `update.nix`.
 5. A fetch 404 / hash-mismatch → the four repos above moved, not nixpkgs.
 
+## cachyOverride (user-facing kernel customization)
+
+Every `linuxPackages_cachyos-*` set exposes `cachyOverride`, which rebuilds the
+kernel with merged `cachyVars`. Defined in `default.nix:54`:
+
+```nix
+cachyOverride = newAttrs: mkCachyKernel (attrs // newAttrs);
+```
+
+Usage in a NixOS config:
+
+```nix
+kernelPackages =
+  let kp = pkgs.linuxPackages_cachyos-gcc;
+  in kp.cachyOverride {
+    cachyVars = kp.kernel.cachyConfig.cachyVars // {
+      "_processor_opt" = "NATIVE";  # or "ZEN4", "GENERIC_V3", etc.
+      "_cc_harder" = "yes";         # -O3
+      "_tcp_bbr3" = "yes";
+    };
+  };
+```
+
+Available `cachyVars` keys (see `packages-for.nix` for the full mapping):
+
+| Key | Default | Values |
+|---|---|---|
+| `_processor_opt` | `""` (null) | `"NATIVE"`, `"ZEN4"`, `"GENERIC_V1"`~`"GENERIC_V4"` |
+| `_cpusched` | `"cachyos"` | `"cachyos"`, `"sched-ext"`, `"bore"`, `"hardened"`, `"bmq"`, `"eevdf"`, `"rt"`, `"rt-bore"` |
+| `_tickrate` | `"idle"` | `"periodic"`, `"idle"`, `"full"` |
+| `_preempt` | `"full"` | `"full"`, `"lazy"`, `"server"` |
+| `_hugepage` | `"madvise"` | `"always"`, `"madvise"` |
+| `_use_llvm_lto` | `"none"` | `"none"`, `"thin"`, `"thin-dist"`, `"full"` |
+| `_HZ_ticks` | `"500"` | `100`–`1000` (300 = special HZ_300 path) |
+| `_cc_harder` | `"no"` | `"yes"` / `"no"` |
+| `_per_gov` | `"no"` | `"yes"` / `"no"` |
+| `_tcp_bbr3` | `"no"` | `"yes"` / `"no"` |
+| `_build_debug` | `"no"` | `"yes"` / `"no"` |
+| `_autofdo` | `"no"` | `"yes"` / `"no"` |
+| `_propeller` | `"no"` | `"yes"` / `"no"` |
+
+The full `cachyVars` attrset is available at runtime via
+`kernelPackages.kernel.cachyConfig.cachyVars`, so users can always merge from
+the default and override selectively.
+
 ## Kernel build notes
 
 - `modDirVersion = lib.versions.pad 3 "${version}${suffix}"` must equal the
