@@ -42,18 +42,16 @@ in
   (prevAttrs: {
     postPatch = prevAttrs.postPatch + configfile.extraVerPatch;
     # bypasses https://github.com/NixOS/nixpkgs/issues/216529
-    passthru =
-      prevAttrs.passthru
-      // {
-        inherit cachyConfig kconfigToNix commonMakeFlags;
-        features = {
-          efiBootStub = true;
-          ia32Emulation = true;
-          netfilterRPFilter = true;
-        };
-        isLTS = false;
-        isZen = true;
-        isHardened = cachyConfig.cpuSched == "hardened";
-        isLibre = false;
+    passthru = prevAttrs.passthru // {
+      inherit cachyConfig kconfigToNix commonMakeFlags;
+      features = {
+        efiBootStub = true;
+        ia32Emulation = true;
+        netfilterRPFilter = true;
       };
+      isLTS = false;
+      isZen = true;
+      isHardened = cachyConfig.cpuSched == "hardened";
+      isLibre = false;
+    };
   })

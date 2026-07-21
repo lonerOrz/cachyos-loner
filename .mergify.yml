@@ -1,0 +1,17 @@
+pull_request_rules:
+  - name: auto-merge when both check-summary and required-builds pass
+    conditions:
+      - check-success=check-summary
+      - check-success=required-checks
+    actions:
+      merge:
+        method: squash
+
+  - name: warn when required builds fail
+    conditions:
+      - check-failure=required-checks
+    actions:
+      comment:
+        message: |
+          Kernel or NVIDIA builds failed. Module failures are informational and don't block merge.
+          Please fix the build issues before merging.

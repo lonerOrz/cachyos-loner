@@ -3,8 +3,15 @@
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
+  inputs.treefmt-nix.url = "github:numtide/treefmt-nix";
+
   outputs =
-    { self, nixpkgs, ... }@inputs:
+    {
+      self,
+      nixpkgs,
+      treefmt-nix,
+      ...
+    }@inputs:
     let
       lib = nixpkgs.lib;
       forAllSystems = lib.genAttrs [ "x86_64-linux" ];
@@ -39,7 +46,14 @@
             overridden // (if pkg ? open then { open = dropUpdate pkg.open; } else { });
 
           registry = import ./variant-registry.nix {
-            inherit lib final prev cachyosPackages callOverride dropUpdate;
+            inherit
+              lib
+              final
+              prev
+              cachyosPackages
+              callOverride
+              dropUpdate
+              ;
           };
         in
         registry;
@@ -99,6 +113,19 @@
             description = "Update linux-cachyos kernel and module versions";
           };
         };
+
+      treefmtEval =
+        system:
+        let
+          pkgs = utils.getPkgs system;
+        in
+        treefmt-nix.lib.evalModule pkgs {
+          projectRootFile = "flake.nix";
+          programs.nixfmt.enable = true;
+          programs.shfmt.enable = true;
+          programs.black.enable = true;
+          programs.prettier.enable = true;
+        };
     in
     {
       overlays.default = defaultOverlay;
@@ -116,76 +143,19 @@
         let
           overlayPkgs = overlayFor system;
         in
-        lib.filterAttrs
-          (n: _: lib.strings.hasPrefix "linuxPackages_cachyos-" n)
-          overlayPkgs
+        lib.filterAttrs (n: _: lib.strings.hasPrefix "linuxPackages_cachyos-" n) overlayPkgs
       );
 
-      needCacheDrvs = forAllSystems (
-        system:
-        let
-          pkgs = self.packages.${system};
-          linuxPkgs = self.legacyPackages.${system} or { };
-
-          tryDrvPath =
-            pkg:
-            let r = builtins.tryEval (pkg.drvPath or null);
-            in if r.success && r.value != null then r.value else null;
-
-          tryAttr =
-            set: attr:
-            let r = builtins.tryEval (set.${attr} or null);
-            in if r.success then r.value else null;
-
-          isDerivation = x: builtins.isAttrs x && (x.type or null) == "derivation";
-
-          isCoreModule =
-            name:
-            let has = s: lib.strings.hasInfix s name;
-            in (has "nvidia" || has "zfs_cachyos") && !(has "nvidia" && has "linuxPackages");
-
-          extractModuleDrvs =
-            variant: mod:
-            let
-              val = tryAttr linuxPkgs.${variant} mod;
-              prefix = "legacyPackages.${system}.${variant}.${mod}";
-            in
-            if val == null then [ ]
-            else if isDerivation val then
-              [ { name = prefix; value = tryDrvPath val; } ]
-            else if builtins.isAttrs val && !(val ? type) then
-              map
-                (n: { name = "${prefix}.${n}"; value = tryDrvPath (tryAttr val n); })
-                (builtins.filter (n: let v = tryAttr val n; in v != null && isDerivation v) (builtins.attrNames val))
-            else [ ];
-
-          flatPackages = lib.genAttrs
-            (builtins.attrNames pkgs)
-            (name: tryDrvPath pkgs.${name});
-
-          allNested = builtins.listToAttrs (
-            lib.concatMap
-              (variant:
-                let s = linuxPkgs.${variant} or { };
-                in if builtins.isAttrs s
-                then lib.concatMap (mod: extractModuleDrvs variant mod) (builtins.attrNames s)
-                else [ ]
-              )
-              (builtins.attrNames linuxPkgs)
-          );
-
-          all = lib.filterAttrs (_: v: v != null) (flatPackages // allNested);
-        in
-        {
-          kernels = lib.filterAttrs
-            (name: _: lib.strings.hasInfix "linux_cachyos" name || lib.strings.hasInfix ".kernel" name)
-            all;
-          modules = lib.filterAttrs (_: isCoreModule) all;
-        }
-      );
+      needCacheDrvs = forAllSystems (system: import ./need-cache-drvs.nix { inherit self lib system; });
 
       apps = forAllSystems (system: {
         update = updateApp system;
+      });
+
+      formatter = forAllSystems (system: (treefmtEval system).config.build.wrapper);
+
+      checks = forAllSystems (system: {
+        formatting = (treefmtEval system).config.build.check self;
       });
     };
 }

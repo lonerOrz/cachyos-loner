@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   check:
+    # Keep in sync with flavors.nix — the single source of truth for variant names.
     strategy:
       matrix:
         variant: [gcc, lto, lto-znver4, server, hardened, lts, rc]
@@ -43,6 +44,7 @@ jobs:
       - name: Verify Kernel Configuration and Patches
         run: nix build .#linux_cachyos-${{ matrix.variant }}.configfile -L --impure
 
+  # Variant → checked-in config-nix file. Keep in sync with config-nix/ directory.
   config-nix-check:
     strategy:
       matrix:
@@ -98,3 +100,19 @@ jobs:
           else
             diff <(cat result) linux-cachyos/config-nix/${{ matrix.config_file }}
           fi
+
+  check-summary:
+    needs: [check, config-nix-check]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate check results
+        run: |
+          echo "check: ${{ needs.check.result }}"
+          echo "config-nix-check: ${{ needs.config-nix-check.result }}"
+
+          if [ "${{ needs.check.result }}" != "success" ] || [ "${{ needs.config-nix-check.result }}" != "success" ]; then
+            echo "::error::One of the config checks failed."
+            exit 1
+          fi
+          echo "All checks passed"
