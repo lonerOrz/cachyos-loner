@@ -20,7 +20,7 @@ jobs:
         variant: [gcc, lto, lto-znver4, server, hardened, lts, rc]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: jlumbroso/free-disk-space@main
 
@@ -65,7 +65,7 @@ jobs:
             config_file: cachyos-lts.x86_64-linux.nix
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: jlumbroso/free-disk-space@main
 
