@@ -28,14 +28,12 @@ jobs:
         uses: actions/checkout@v7
         with:
           path: pr
-          token: ${{ secrets.GH_TOKEN }}
 
       - name: Checkout Main (Base)
         uses: actions/checkout@v7
         with:
           ref: ${{ github.base_ref }}
           path: base
-          token: ${{ secrets.GH_TOKEN }}
 
       - name: Compare Derivation Paths
         id: compare-drvs
@@ -96,8 +94,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          token: ${{ secrets.GH_TOKEN }}
       - uses: jlumbroso/free-disk-space@main
       - uses: pierotofy/set-swap-space@master
         with:
@@ -127,8 +123,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          token: ${{ secrets.GH_TOKEN }}
       - uses: jlumbroso/free-disk-space@main
       - uses: pierotofy/set-swap-space@master
         with:
