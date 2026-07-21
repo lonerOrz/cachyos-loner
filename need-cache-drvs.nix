@@ -54,13 +54,16 @@ let
   isKernelEntry =
     name: lib.strings.hasInfix "linux_cachyos" name || lib.strings.hasInfix ".kernel" name;
 
-  # Module entries: nvidia* (except when inside linuxPackages sets) and zfs_cachyos.
-  isModuleEntry =
-    name:
+  # Module entries: everything that isn't a kernel.
+  isModuleEntry = name: !(isKernelEntry name);
+
+  # Skip modules that nixpkgs marks as broken or unsupported.
+  isBroken =
+    pkg:
     let
-      has = s: lib.strings.hasInfix s name;
+      r = builtins.tryEval (pkg.meta.broken or pkg.meta.unsupported or false);
     in
-    (has "nvidia" || has "zfs_cachyos") && !(has "nvidia" && has "linuxPackages");
+    r.success && r.value != false && r.value != null;
 
   extractModuleDrvs =
     variant: mod:
@@ -68,7 +71,7 @@ let
       val = tryAttr linuxPkgs.${variant} mod;
       prefix = "legacyPackages.${system}.${variant}.${mod}";
     in
-    if val == null then
+    if val == null || (isDerivation val && isBroken val) then
       [ ]
     else if isDerivation val then
       [
@@ -95,7 +98,7 @@ let
             let
               v = tryAttr val n;
             in
-            v != null && isDerivation v
+            v != null && isDerivation v && !(isBroken v)
           ) (builtins.attrNames val)
         )
     else
