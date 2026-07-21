@@ -8,6 +8,13 @@ let
   pkgs = self.packages.${system};
   linuxPkgs = self.legacyPackages.${system} or { };
 
+  # Modules allowed into the CI cache queue.
+  allowedModules = [
+    "zfs_cachyos"
+    "zenpower"
+    "v4l2loopback"
+  ];
+
   tryDrvPath =
     pkg:
     let
@@ -24,9 +31,6 @@ let
 
   isDerivation = x: builtins.isAttrs x && (x.type or null) == "derivation";
 
-  # Extract variant name from a package key by matching "-<variant>" segments.
-  # Tries longest variants first (lto-znver4 before lto) to avoid false matches.
-  # Falls back to "gcc" for unsuffixed names (nvidia_cachyos, zfs_cachyos, linux_cachyos alias).
   extractVariant =
     name:
     let
@@ -50,14 +54,11 @@ let
     in
     if found != null then found else "gcc";
 
-  # Kernel entries: anything with "linux_cachyos" or ".kernel" in the key name.
-  isKernelEntry =
-    name: lib.strings.hasInfix "linux_cachyos" name || lib.strings.hasInfix ".kernel" name;
+  # Three-way classification.
+  isKernel = name: lib.strings.hasInfix "linux_cachyos" name || lib.strings.hasInfix ".kernel" name;
+  isNvidia = name: lib.strings.hasInfix "nvidia" name;
+  # modules = everything else (zfs, v4l2loopback, acpi_call, etc.)
 
-  # Module entries: everything that isn't a kernel.
-  isModuleEntry = name: !(isKernelEntry name);
-
-  # Skip modules that nixpkgs marks as broken or unsupported.
   isBroken =
     pkg:
     let
@@ -72,6 +73,8 @@ let
       prefix = "legacyPackages.${system}.${variant}.${mod}";
     in
     if val == null || (isDerivation val && isBroken val) then
+      [ ]
+    else if !(builtins.elem mod allowedModules) then
       [ ]
     else if isDerivation val then
       [
@@ -126,6 +129,12 @@ let
 
 in
 {
-  kernels = lib.filterAttrs (name: _: isKernelEntry name) all;
-  modules = lib.filterAttrs (name: _: isModuleEntry name) all;
+  # Tier 1: kernels — top-level only (flatPackages), no nested duplicates.
+  kernels = lib.filterAttrs (name: v: isKernel name && v.drvPath != null) flatPackages;
+
+  # Tier 2: nvidia — from flatPackages.
+  nvidia = lib.filterAttrs (name: v: isNvidia name && v.drvPath != null) flatPackages;
+
+  # Tier 3: modules — from linuxPackages sets (allNested), excluding nvidia.
+  modules = lib.filterAttrs (name: v: !(isNvidia name) && v.drvPath != null) allNested;
 }

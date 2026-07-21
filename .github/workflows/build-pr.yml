@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       kernels: ${{ steps.compare-drvs.outputs.kernels }}
-      modules: ${{ steps.compare-drvs.outputs.modules }}
+      extras: ${{ steps.compare-drvs.outputs.extras }}
       run_build: ${{ steps.compare-drvs.outputs.run_build }}
     steps:
       - name: Install Nix
@@ -45,46 +45,45 @@ jobs:
           cd ..
 
           cd base
-          nix eval .#needCacheDrvs.x86_64-linux --json > "$RUNNER_TEMP/base_all.json" 2>/dev/null || echo '{"kernels": {}, "modules": {}}' > "$RUNNER_TEMP/base_all.json"
+          nix eval .#needCacheDrvs.x86_64-linux --json > "$RUNNER_TEMP/base_all.json" 2>/dev/null || echo '{"kernels": {}, "nvidia": {}, "modules": {}}' > "$RUNNER_TEMP/base_all.json"
           cd ..
 
           PR_JSON=$(cat "$RUNNER_TEMP/pr_all.json")
           BASE_JSON=$(cat "$RUNNER_TEMP/base_all.json")
 
-          KERNELS=$(jq -n \
-            --argjson pr "$PR_JSON" \
-            --argjson base "$BASE_JSON" \
-            '
-              $pr.kernels | to_entries
-              | map(select(
-                  .value.drvPath != $base.kernels[.key].drvPath or
-                  .value.drvPath == null or
-                  $base.kernels[.key].drvPath == null
-              ))
-              | group_by(.value.drvPath) | map(.[0].key)
-            ' -c)
+          get_changes() {
+            local category=$1
+            jq -n \
+              --arg cat "$category" \
+              --argjson pr "$PR_JSON" \
+              --argjson base "$BASE_JSON" \
+              '
+                ($pr[$cat] // {}) | to_entries
+                | map(select(
+                    .value.drvPath != (($base[$cat] // {})[.key].drvPath // "") or
+                    .value.drvPath == null
+                ))
+                | group_by(.value.drvPath) | map(.[0].key)
+              ' -c
+          }
 
-          MODULES=$(jq -n \
-            --argjson pr "$PR_JSON" \
-            --argjson base "$BASE_JSON" \
-            '
-              $pr.modules | to_entries
-              | map(select(
-                  .value.drvPath != $base.modules[.key].drvPath or
-                  .value.drvPath == null or
-                  $base.modules[.key].drvPath == null
-              ))
-              | group_by(.value.drvPath) | map(.[0].key)
-            ' -c)
+          KERNELS=$(get_changes "kernels")
+          NVIDIA=$(get_changes "nvidia")
+          MODULES=$(get_changes "modules")
 
-          if [ "$KERNELS" = "[]" ] && [ "$MODULES" = "[]" ]; then
+          EXTRAS=$(jq -n \
+            --argjson nvidia "$NVIDIA" \
+            --argjson modules "$MODULES" \
+            '($nvidia | map({ package: ., type: "nvidia" })) + ($modules | map({ package: ., type: "module" }))' -c)
+
+          if [ "$KERNELS" = "[]" ] && [ "$EXTRAS" = "[]" ]; then
             RUN_BUILD="false"
           else
             RUN_BUILD="true"
           fi
 
           echo "kernels=$KERNELS" >> $GITHUB_OUTPUT
-          echo "modules=$MODULES" >> $GITHUB_OUTPUT
+          echo "extras=$EXTRAS" >> $GITHUB_OUTPUT
           echo "run_build=$RUN_BUILD" >> $GITHUB_OUTPUT
 
   build-kernels:
@@ -99,13 +98,10 @@ jobs:
       - uses: actions/checkout@v6
         with:
           token: ${{ secrets.GH_TOKEN }}
-
       - uses: jlumbroso/free-disk-space@main
-
       - uses: pierotofy/set-swap-space@master
         with:
           swap-size-gb: 20
-
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
@@ -113,35 +109,30 @@ jobs:
             accept-flake-config = true
             sandbox-fallback = false
             access-tokens = github.com=${{ secrets.GH_TOKEN }}
-
       - uses: lonerOrz/noci/action@main
         with:
           repo: ${{ github.repository }}
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
           token: ${{ secrets.GH_TOKEN }}
-
       - name: Build Kernel
         run: nix build .#${{ matrix.package }} -L --impure
 
-  build-modules:
+  build-extras:
     needs: [detect, build-kernels]
-    if: ${{ !failure() && !cancelled() && needs.detect.outputs.run_build == 'true' && needs.detect.outputs.modules != '[]' }}
+    if: ${{ !failure() && !cancelled() && needs.detect.outputs.run_build == 'true' && needs.detect.outputs.extras != '[]' }}
     strategy:
       fail-fast: false
       matrix:
-        package: ${{ fromJson(needs.detect.outputs.modules) }}
+        include: ${{ fromJson(needs.detect.outputs.extras) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           token: ${{ secrets.GH_TOKEN }}
-
       - uses: jlumbroso/free-disk-space@main
-
       - uses: pierotofy/set-swap-space@master
         with:
           swap-size-gb: 20
-
       - name: Install Nix
         uses: cachix/install-nix-action@v31
         with:
@@ -149,12 +140,28 @@ jobs:
             accept-flake-config = true
             sandbox-fallback = false
             access-tokens = github.com=${{ secrets.GH_TOKEN }}
-
       - uses: lonerOrz/noci/action@main
         with:
           repo: ${{ github.repository }}
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
           token: ${{ secrets.GH_TOKEN }}
-
-      - name: Build Module
+      - name: Build Extra Component
         run: nix build .#${{ matrix.package }} -L --impure
+        continue-on-error: ${{ matrix.type == 'module' }}
+
+  required-checks:
+    if: always()
+    needs: [detect, build-kernels, build-extras]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate required checks
+        run: |
+          echo "detect: ${{ needs.detect.result }}"
+          echo "build-kernels: ${{ needs.build-kernels.result }}"
+          echo "build-extras: ${{ needs.build-extras.result }}"
+
+          if [ "${{ needs.build-kernels.result }}" = "failure" ] || [ "${{ needs.build-extras.result }}" = "failure" ]; then
+            echo "::error::Required core checks failed."
+            exit 1
+          fi
+          echo "Required checks passed"

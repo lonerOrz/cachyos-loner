@@ -100,3 +100,19 @@ jobs:
           else
             diff <(cat result) linux-cachyos/config-nix/${{ matrix.config_file }}
           fi
+
+  check-summary:
+    needs: [check, config-nix-check]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate check results
+        run: |
+          echo "check: ${{ needs.check.result }}"
+          echo "config-nix-check: ${{ needs.config-nix-check.result }}"
+
+          if [ "${{ needs.check.result }}" != "success" ] || [ "${{ needs.config-nix-check.result }}" != "success" ]; then
+            echo "::error::One of the config checks failed."
+            exit 1
+          fi
+          echo "All checks passed"

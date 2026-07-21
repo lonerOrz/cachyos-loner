@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       kernels_matrix: ${{ steps.matrix.outputs.kernels }}
-      modules_matrix: ${{ steps.matrix.outputs.modules }}
+      extras_matrix: ${{ steps.matrix.outputs.extras }}
     steps:
       - uses: actions/checkout@v4
 
@@ -75,6 +75,15 @@ jobs:
               | group_by(.value.drvPath) | map(.[0].key)
             ' -c)
 
+          NVIDIA=$(jq -n \
+            --argjson all "$(cat "$RUNNER_TEMP/need_cache.json")" \
+            --argjson enabled "$ENABLED_JSON" \
+            '
+              $all.nvidia | to_entries
+              | map(select(.value.variant as $v | $enabled | index($v)))
+              | group_by(.value.drvPath) | map(.[0].key)
+            ' -c)
+
           MODULES=$(jq -n \
             --argjson all "$(cat "$RUNNER_TEMP/need_cache.json")" \
             --argjson enabled "$ENABLED_JSON" \
@@ -84,8 +93,13 @@ jobs:
               | group_by(.value.drvPath) | map(.[0].key)
             ' -c)
 
+          EXTRAS=$(jq -n \
+            --argjson nvidia "$NVIDIA" \
+            --argjson modules "$MODULES" \
+            '($nvidia | map({ package: ., type: "nvidia" })) + ($modules | map({ package: ., type: "module" }))' -c)
+
           printf 'kernels=%s\n' "$KERNELS" >> "$GITHUB_OUTPUT"
-          printf 'modules=%s\n' "$MODULES" >> "$GITHUB_OUTPUT"
+          printf 'extras=%s\n' "$EXTRAS" >> "$GITHUB_OUTPUT"
 
   build-kernels:
     needs: prepare
@@ -120,14 +134,14 @@ jobs:
       - name: Build Kernel
         run: nix build .#${{ matrix.package }} -L --impure
 
-  build-modules:
+  build-extras:
     needs: [prepare, build-kernels]
-    if: needs.prepare.outputs.modules_matrix != '[]'
+    if: needs.prepare.outputs.extras_matrix != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        package: ${{ fromJson(needs.prepare.outputs.modules_matrix) }}
+        include: ${{ fromJson(needs.prepare.outputs.extras_matrix) }}
     steps:
       - uses: actions/checkout@v6
 
@@ -150,11 +164,12 @@ jobs:
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Build Module
+      - name: Build Extra Component
         run: nix build .#${{ matrix.package }} -L --impure
+        continue-on-error: ${{ matrix.type == 'module' }}
 
   cleanup:
-    needs: [build-kernels, build-modules]
+    needs: [build-kernels, build-extras]
     if: always() && github.event.inputs.run_gc == 'true'
     runs-on: ubuntu-latest
     steps:
