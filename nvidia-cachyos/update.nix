@@ -7,7 +7,6 @@
   gnugrep,
   jq,
   nix,
-  moreutils,
   git,
   variant,
 }:
@@ -19,7 +18,6 @@ let
     curl
     gnugrep
     jq
-    moreutils
     nix
     git
   ];
@@ -37,7 +35,7 @@ writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
     echo "{}" > "$srcJson"
   fi
 
-  pkgbuild=$(curl -fsSL --connect-timeout 10 --max-time 30 \
+  pkgbuild=$(curl -fsSL --http1.1 --connect-timeout 10 --max-time 30 \
     "https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos${suffix}/PKGBUILD")
   latestVer=$(echo "$pkgbuild" | grep -Po '(?<=_nv_ver=)([^[:space:]]+)')
 
@@ -55,6 +53,10 @@ writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
     versionChanged=true
   fi
 
+  # Extract kernel major version for patch discovery
+  kernelMajor=$(echo "$pkgbuild" | grep -Po '(?<=_major=)([^[:space:]]+)')
+  echo "Kernel major version: $kernelMajor"
+
   fetch_hash() {
     nix-prefetch-url "$1" | xargs nix-hash --to-sri --type sha256
   }
@@ -62,6 +64,37 @@ writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
   fetch_hash_unpack() {
     nix-prefetch-url --unpack "$1" | xargs nix-hash --to-sri --type sha256
   }
+
+  fetchpatch_hash() {
+    local url="$1"
+    local tmp
+    tmp=$(mktemp)
+    curl -fsSL --http1.1 --connect-timeout 10 --max-time 30 "$url" -o "$tmp"
+    # Raw file hash — matches fetchurl in default.nix (no normalization)
+    nix-hash --flat --type sha256 "$tmp" | xargs nix-hash --to-sri --type sha256
+    rm -f "$tmp"
+  }
+
+  # Parse nvidia patches from PKGBUILD source array — only patches that
+  # CachyOS actually applies to the open driver, not all files in the dir.
+  discover_kernel_patches() {
+    local major="$1"
+    local pkgbuild_content="$2"
+
+    local patches_json="[]"
+    while IFS= read -r patch_name; do
+      local url hash
+      url="https://raw.githubusercontent.com/CachyOS/kernel-patches/master/$major/misc/nvidia/$patch_name"
+      hash=$(fetchpatch_hash "$url")
+      patches_json=$(echo "$patches_json" | jq \
+        --arg n "$patch_name" --arg u "$url" --arg h "$hash" \
+        '. + [{"name": $n, "url": $u, "hash": $h}]')
+    done < <(echo "$pkgbuild_content" | grep -oP 'misc/nvidia/\K[^"]+\.patch' | sort -u)
+
+    echo "$patches_json"
+  }
+
+  changed=false
 
   if [[ "$versionChanged" == "true" ]]; then
     echo "Fetching hashes for new version $latestVer..."
@@ -79,12 +112,27 @@ writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
       --arg settings "$settingsHash" \
       --arg persistenced "$persistencedHash" \
       '.version = $ver | .hash = $main | .aarch64Hash = $aarch64 | .openHash = $open | .settingsHash = $settings | .persistencedHash = $persistenced' \
-      "$srcJson" | sponge "$srcJson"
+      "$srcJson" > "$srcJson.tmp" && mv "$srcJson.tmp" "$srcJson"
+    changed=true
+  fi
 
+  # Always re-discover kernel patches (they can change independently of driver version)
+  echo "Discovering kernel patches for major $kernelMajor..."
+  kernelPatches=$(discover_kernel_patches "$kernelMajor" "$pkgbuild")
+  patchCount=$(echo "$kernelPatches" | jq 'length')
+  echo "Final kernel patches: $patchCount"
+
+  oldPatches=$(jq -c '.kernelPatches // []' < "$srcJson")
+  newPatches=$(echo "$kernelPatches" | jq -c '.')
+  if [[ "$oldPatches" != "$newPatches" ]]; then
+    jq --argjson kp "$kernelPatches" '.kernelPatches = $kp' "$srcJson" > "$srcJson.tmp" && mv "$srcJson.tmp" "$srcJson"
+    changed=true
+  fi
+
+  if [[ "$changed" == "true" ]]; then
     git add nvidia-cachyos
-    git commit -m "nvidia_cachyos${suffix}: $localVer -> $latestVer"
-
-    echo "Successfully updated $srcJson to $latestVer and committed"
+    git commit -m "nvidia_cachyos${suffix}: update versions and kernel patches"
+    echo "Successfully updated $srcJson"
   else
     echo "NVIDIA CachyOS is already up to date (Version: $localVer)"
   fi

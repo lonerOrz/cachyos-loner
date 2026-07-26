@@ -31,18 +31,21 @@ let
 
   isDerivation = x: builtins.isAttrs x && (x.type or null) == "derivation";
 
+  knownVariants =
+    let
+      prefix = "linuxPackages_cachyos-";
+      names = builtins.attrNames linuxPkgs;
+      prefixed = builtins.filter (n: lib.hasPrefix prefix n) names;
+      variants = map (n: lib.removePrefix prefix n) prefixed;
+    in
+    # Sort by length descending so longest match wins (lto-znver4 before lto)
+    builtins.sort (a: b: (builtins.stringLength a) > (builtins.stringLength b)) (
+      lib.unique (builtins.filter (v: v != "") variants)
+    );
+
   extractVariant =
     name:
     let
-      knownVariants = [
-        "lto-znver4"
-        "lto"
-        "hardened"
-        "server"
-        "lts"
-        "rc"
-        "gcc"
-      ];
       tryVariant =
         v:
         let
@@ -130,7 +133,10 @@ let
 in
 {
   # Tier 1: kernels — top-level only (flatPackages), no nested duplicates.
-  kernels = lib.filterAttrs (name: v: isKernel name && v.drvPath != null) flatPackages;
+  # Filter out the bare "linux_cachyos" alias (unqualified, no variant suffix).
+  kernels = lib.filterAttrs (
+    name: v: isKernel name && v.drvPath != null && name != "linux_cachyos"
+  ) flatPackages;
 
   # Tier 2: nvidia — from flatPackages.
   nvidia = lib.filterAttrs (name: v: isNvidia name && v.drvPath != null) flatPackages;

@@ -14,6 +14,10 @@ let
   suffix = if variant == "stable" then "" else "-${variant}";
   versions = importJSON (./. + "/version${suffix}.json");
 
+  kernelPatches = map (p: final.fetchurl { inherit (p) name url hash; }) (
+    versions.kernelPatches or [ ]
+  );
+
   updater = final.callPackage ./update.nix { inherit variant; };
 
   cachyosLinuxPackages = linuxPackages;
@@ -39,6 +43,7 @@ if cachyosLinuxPackages ? nvidiaPackages then
         openSha256 = versions.openHash;
         settingsSha256 = versions.settingsHash;
         persistencedSha256 = versions.persistencedHash;
+        patchesOpen = kernelPatches;
       }
     );
 

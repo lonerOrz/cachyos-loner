@@ -49,7 +49,7 @@ in
         ia32Emulation = true;
         netfilterRPFilter = true;
       };
-      isLTS = false;
+      isLTS = lib.hasSuffix "-lts" (cachyConfig.taste or "");
       isZen = true;
       isHardened = cachyConfig.cpuSched == "hardened";
       isLibre = false;
