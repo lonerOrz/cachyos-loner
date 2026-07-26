@@ -100,7 +100,7 @@ writeShellScriptBin "update-cachyos" ''
   patchesRev=$rev
   patchesHash=$hash
 
-  zfsRev=$(grep -Po '(?<=zfs.git#commit=)([^"]+)' \
+  zfsRev=$(grep -Po "(?<=zfs.git#commit=)[^\"'\\s]+" \
     "$configPath/linux-cachyos${suffix}/PKGBUILD")
 
   read _ zfsHash < <(prefetch_git https://github.com/CachyOS/zfs.git --rev "$zfsRev")
