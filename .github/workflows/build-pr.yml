@@ -94,8 +94,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: jlumbroso/free-disk-space@main
-      - uses: pierotofy/set-swap-space@master
+      - uses: jlumbroso/free-disk-space@v1.3.1
+      - uses: pierotofy/set-swap-space@v1.0
         with:
           swap-size-gb: 20
       - name: Install Nix
@@ -105,7 +105,7 @@ jobs:
             accept-flake-config = true
             sandbox-fallback = false
             access-tokens = github.com=${{ secrets.GH_TOKEN }}
-      - uses: lonerOrz/noci/action@main
+      - uses: lonerOrz/noci/action@v1.5.0
         with:
           repo: ${{ github.repository }}
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
@@ -123,8 +123,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: jlumbroso/free-disk-space@main
-      - uses: pierotofy/set-swap-space@master
+      - uses: jlumbroso/free-disk-space@v1.3.1
+      - uses: pierotofy/set-swap-space@v1.0
         with:
           swap-size-gb: 20
       - name: Install Nix
@@ -134,7 +134,7 @@ jobs:
             accept-flake-config = true
             sandbox-fallback = false
             access-tokens = github.com=${{ secrets.GH_TOKEN }}
-      - uses: lonerOrz/noci/action@main
+      - uses: lonerOrz/noci/action@v1.5.0
         with:
           repo: ${{ github.repository }}
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
@@ -154,8 +154,8 @@ jobs:
           echo "build-kernels: ${{ needs.build-kernels.result }}"
           echo "build-extras: ${{ needs.build-extras.result }}"
 
-          if [ "${{ needs.build-kernels.result }}" = "failure" ] || [ "${{ needs.build-extras.result }}" = "failure" ]; then
-            echo "::error::Required core checks failed."
+          if [ "${{ needs.detect.result }}" != "success" ] || [ "${{ needs.build-kernels.result }}" = "failure" ] || [ "${{ needs.build-extras.result }}" = "failure" ]; then
+            echo "::error::Required core checks failed (detect=${{ needs.detect.result }}, build-kernels=${{ needs.build-kernels.result }}, build-extras=${{ needs.build-extras.result }})."
             exit 1
           fi
           echo "Required checks passed"

@@ -4,6 +4,10 @@ on:
   schedule:
     - cron: "0 16 * * *"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   bump:
     runs-on: ubuntu-latest
@@ -23,6 +27,12 @@ jobs:
             accept-flake-config = true
             access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
+      - uses: lonerOrz/noci/action@v1.5.0
+        with:
+          repo: ${{ github.repository }}
+          signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
+          token: ${{ secrets.GH_TOKEN }}
+
       - name: Configure Git
         run: |
           git config user.name "cachyos-loner[bot]"
@@ -41,16 +51,29 @@ jobs:
           if [ "$(git rev-parse HEAD)" != "$BASE_SHA" ]; then
             git push origin "$BRANCH_NAME" --force
 
+            COMMIT_LIST=$(git log --pretty=format:"* %s" "$BASE_SHA"..HEAD)
+
+            PR_BODY="Automated routine update for active CachyOS kernels and NVIDIA drivers.
+
+            ### Updated Components in this PR:
+            $COMMIT_LIST
+
+            > Note: Unchanged or failed components will be retried automatically in the next scheduled run."
+
             PR_NUMBER=$(gh pr list --head "$BRANCH_NAME" --state open --json number --jq '.[0].number // empty')
 
             if [ -z "$PR_NUMBER" ]; then
               gh pr create \
                 --title "bump(cachyos): automated kernels and drivers update" \
-                --body "Automated routine update for all active CachyOS kernels, NVIDIA drivers, and modules." \
+                --body "$PR_BODY" \
                 --base main \
                 --head "$BRANCH_NAME"
             else
-              LAST_COMMIT=$(git log -1 --pretty=%s)
-              gh pr comment "$PR_NUMBER" --body "This pull request has been updated with new changes: \`${LAST_COMMIT}\`."
+              gh pr edit "$PR_NUMBER" --body "$PR_BODY"
+
+              COMMENT_BODY="This pull request has been updated with the following changes:
+
+              $COMMIT_LIST"
+              gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY"
             fi
           fi

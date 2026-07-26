@@ -48,7 +48,7 @@ jobs:
             accept-flake-config = true
             access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
-      - uses: lonerOrz/noci/action@main
+      - uses: lonerOrz/noci/action@v1.5.0
         with:
           repo: ${{ github.repository }}
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
@@ -58,8 +58,21 @@ jobs:
         run: nix build .#linux_cachyos-${{ matrix.variant }}.configfile -L --impure
 
   # Variant → checked-in config-nix file. Keep in sync with config-nix/ directory.
+  formatting-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
+      - name: Check Code Formatting
+        run: nix build .#checks.x86_64-linux.formatting -L --impure
+
   config-nix-check:
-    needs: validate-matrix
+    needs: [validate-matrix, formatting-check]
     strategy:
       matrix:
         include:
@@ -89,7 +102,7 @@ jobs:
             sandbox-fallback = false
             access-tokens = github.com=${{ secrets.GH_TOKEN }}
 
-      - uses: lonerOrz/noci/action@main
+      - uses: lonerOrz/noci/action@v1.5.0
         with:
           repo: ${{ github.repository }}
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
@@ -110,17 +123,18 @@ jobs:
           fi
 
   check-summary:
-    needs: [check, config-nix-check]
+    needs: [check, formatting-check, config-nix-check]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate check results
         run: |
           echo "check: ${{ needs.check.result }}"
+          echo "formatting-check: ${{ needs.formatting-check.result }}"
           echo "config-nix-check: ${{ needs.config-nix-check.result }}"
 
-          if [ "${{ needs.check.result }}" != "success" ] || [ "${{ needs.config-nix-check.result }}" != "success" ]; then
-            echo "::error::One of the config checks failed."
+          if [ "${{ needs.check.result }}" != "success" ] || [ "${{ needs.formatting-check.result }}" != "success" ] || [ "${{ needs.config-nix-check.result }}" != "success" ]; then
+            echo "::error::One of the config or formatting checks failed."
             exit 1
           fi
           echo "All checks passed"
