@@ -13,20 +13,33 @@ permissions:
   packages: write
 
 jobs:
+  validate-matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+            access-tokens = github.com=${{ secrets.GH_TOKEN }}
+      - name: Validate variant list matches flavors.nix
+        run: |
+          EXPECTED=$(nix eval .#needCacheDrvs.x86_64-linux --json | jq -r '.kernels | keys[]' | sed 's/^linux_cachyos-//' | sort)
+          MATRIX=$(echo '["gcc", "hardened", "lto", "lto-znver4", "lts", "rc", "server"]' | jq -r '.[]' | sort)
+          if ! diff <(echo "$EXPECTED") <(echo "$MATRIX"); then
+            echo "::error::Variant matrix in check.yml is out of sync with flavors.nix"
+            exit 1
+          fi
+
   check:
-    # Keep in sync with flavors.nix — the single source of truth for variant names.
+    needs: validate-matrix
     strategy:
       matrix:
         variant: [gcc, lto, lto-znver4, server, hardened, lts, rc]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - uses: jlumbroso/free-disk-space@main
-
-      - uses: pierotofy/set-swap-space@master
-        with:
-          swap-size-gb: 20
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31
@@ -41,20 +54,12 @@ jobs:
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: Validate variant list matches flavors.nix
-        run: |
-          nix_json=$(nix eval .#needCacheDrvs.x86_64-linux --json | jq -r '.kernels | keys[]' | sed 's/^linux_cachyos-//' | sort)
-          matrix_json=$(echo '${{ toJSON(matrix.variant) }}' | jq -r '.[]' | sort)
-          if ! diff <(echo "$nix_json") <(echo "$matrix_json"); then
-            echo "::error::Variant list in check.yml matrix does not match flavors.nix"
-            exit 1
-          fi
-
       - name: Verify Kernel Configuration and Patches
         run: nix build .#linux_cachyos-${{ matrix.variant }}.configfile -L --impure
 
   # Variant → checked-in config-nix file. Keep in sync with config-nix/ directory.
   config-nix-check:
+    needs: validate-matrix
     strategy:
       matrix:
         include:
@@ -75,12 +80,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-
-      - uses: jlumbroso/free-disk-space@main
-
-      - uses: pierotofy/set-swap-space@master
-        with:
-          swap-size-gb: 20
 
       - name: Install Nix
         uses: cachix/install-nix-action@v31

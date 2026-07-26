@@ -44,7 +44,7 @@ writeShellScriptBin "update-cachyos" ''
   localTagrel=$(jq -r '.linux.tagrel // -1' < "$srcJson")
 
   fetch_pkgbuild() {
-    curl -fsSL --connect-timeout 10 --max-time 30 \
+    curl -fsSL --http1.1 --connect-timeout 10 --max-time 30 \
       "https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos${suffix}/PKGBUILD"
   }
 
@@ -76,7 +76,7 @@ writeShellScriptBin "update-cachyos" ''
 
   srcUrl="https://github.com/CachyOS/linux/releases/download/''${srcTag}/''${srcTag}.tar.gz"
 
-  if [[ "${"FORCE:-0"}" != "1" && "$localVer" == "$latestVer" && "$localTagrel" == "$latestTagrel" ]]; then
+  if [[ "''${FORCE:-0}" != "1" && "$localVer" == "$latestVer" && "$localTagrel" == "$latestTagrel" ]]; then
     echo "Already up to date: $latestVer-$latestTagrel"
     exit 0
   fi
@@ -126,15 +126,26 @@ writeShellScriptBin "update-cachyos" ''
       .zfs.hash = $zfsHash
     ' "$srcJson" | sponge "$srcJson"
 
+  failed_flavors=()
   for flv in ${flavorsStr}; do
     out=$(nix build \
       ".#packages.x86_64-linux.linux_cachyos''${flv}.kconfigToNix" \
-      --no-link --print-out-paths 2>/dev/null) || true
+      --no-link --print-out-paths 2>&1) && build_rc=0 || build_rc=$?
 
-    if [ -n "$out" ] && [ -f "$out" ]; then
-      cat "$out" > linux-cachyos/config-nix/cachyos''${flv}.x86_64-linux.nix
+    if [ "$build_rc" -ne 0 ] || [ -z "$out" ] || [ ! -f "$out" ]; then
+      echo "WARNING: kconfigToNix build failed for ${flv} (exit=$build_rc)" >&2
+      failed_flavors+=("$flv")
+      continue
     fi
+
+    cat "$out" > linux-cachyos/config-nix/cachyos''${flv}.x86_64-linux.nix
   done
+
+  if [ ''${#failed_flavors[@]} -gt 0 ]; then
+    echo "ERROR: kconfigToNix failed for: ''${failed_flavors[*]}" >&2
+    echo "The kernel version was updated but config-nix snapshots are stale." >&2
+    exit 1
+  fi
 
   git add linux-cachyos
   git commit -m "linux_cachyos${suffix}: $localVer-$localTagrel -> $latestVer-$latestTagrel"

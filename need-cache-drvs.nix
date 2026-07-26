@@ -38,7 +38,10 @@ let
       prefixed = builtins.filter (n: lib.hasPrefix prefix n) names;
       variants = map (n: lib.removePrefix prefix n) prefixed;
     in
-    lib.unique (builtins.filter (v: v != "") variants);
+    # Sort by length descending so longest match wins (lto-znver4 before lto)
+    builtins.sort (a: b: (builtins.stringLength a) > (builtins.stringLength b)) (
+      lib.unique (builtins.filter (v: v != "") variants)
+    );
 
   extractVariant =
     name:

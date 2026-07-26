@@ -4,5 +4,17 @@
   "aarch64Hash": "sha256-jSdlXo60ilXLKWKvZfgbBnVqVYuw6zhnGuiDgwxYz94=",
   "openHash": "sha256-QCXmqo2xNyIwjGv0da2MUC8ex641Mmc5DUI+uRFVwgE=",
   "settingsHash": "sha256-z/t+SdEQdVJPwjKIRHO02d264Kt47eWiOwwsaxmh4xQ=",
-  "persistencedHash": "sha256-pgU0ua3LJvgz8i/yG9+ZkFR1yn2CmPQ8iSmsOs6q5h8="
+  "persistencedHash": "sha256-pgU0ua3LJvgz8i/yG9+ZkFR1yn2CmPQ8iSmsOs6q5h8=",
+  "kernelPatches": [
+    {
+      "name": "0003-fix-dsc-correct-RC-parameter-tables-to-match-VESA-DS.patch",
+      "url": "https://raw.githubusercontent.com/CachyOS/kernel-patches/master/7.0/misc/nvidia/0003-fix-dsc-correct-RC-parameter-tables-to-match-VESA-DS.patch",
+      "hash": "sha256-cQCKT2XNWYwjRuIgRuh/iKqowE8EQC8CXryYiMj6RDs="
+    },
+    {
+      "name": "0005-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch",
+      "url": "https://raw.githubusercontent.com/CachyOS/kernel-patches/master/7.0/misc/nvidia/0005-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch",
+      "hash": "sha256-u2UiV+XLDepDKoPJcdAUBres+cvbBUrfiVTFZL4OTnQ="
+    }
+  ]
 }
