@@ -41,6 +41,15 @@ jobs:
           signing-key: ${{ secrets.NOCI_SIGNING_KEY }}
           token: ${{ secrets.GH_TOKEN }}
 
+      - name: Validate variant list matches flavors.nix
+        run: |
+          nix_json=$(nix eval .#needCacheDrvs.x86_64-linux --json | jq -r '.kernels | keys[]' | sed 's/^linux_cachyos-//' | sort)
+          matrix_json=$(echo '${{ toJSON(matrix.variant) }}' | jq -r '.[]' | sort)
+          if ! diff <(echo "$nix_json") <(echo "$matrix_json"); then
+            echo "::error::Variant list in check.yml matrix does not match flavors.nix"
+            exit 1
+          fi
+
       - name: Verify Kernel Configuration and Patches
         run: nix build .#linux_cachyos-${{ matrix.variant }}.configfile -L --impure
 
