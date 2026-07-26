@@ -130,7 +130,7 @@ writeShellScriptBin "update-cachyos" ''
   for flv in ${flavorsStr}; do
     out=$(nix build \
       ".#packages.x86_64-linux.linux_cachyos''${flv}.kconfigToNix" \
-      --no-link --print-out-paths 2>&1) && build_rc=0 || build_rc=$?
+      --no-link --print-out-paths) && build_rc=0 || build_rc=$?
 
     if [ "$build_rc" -ne 0 ] || [ -z "$out" ] || [ ! -f "$out" ]; then
       echo "WARNING: kconfigToNix build failed for ''${flv} (exit=$build_rc)" >&2
