@@ -8,6 +8,8 @@
 }:
 
 let
+  gccVersions = builtins.fromJSON (builtins.readFile ./linux-cachyos/versions.json);
+
   # Single source of truth for per-variant exposure metadata.
   # kernelAlias/nvidiaDropUpdate/kernelDropUpdate drive the linuxPackages_cachyos-* exposure;
   # nvidiaVariant drives the paired nvidia_cachyos-* package.
@@ -110,7 +112,11 @@ let
   zfs = {
     zfs_cachyos = dropUpdate (
       prev.zfs_2_4.overrideAttrs (prevAttrs: {
-        src = cachyosPackages."cachyos-gcc".zfs_cachyos.src;
+        src = final.fetchFromGitHub {
+          owner = "cachyos";
+          repo = "zfs";
+          inherit (gccVersions.zfs) rev hash;
+        };
         patches = [ ];
         passthru = prevAttrs.passthru // {
           kernelModuleAttribute = "zfs_cachyos";
