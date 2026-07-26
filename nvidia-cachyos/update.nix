@@ -22,7 +22,7 @@ let
     git
   ];
 
-  suffix = if variant == "stable" then "" else "-${variant}";
+  suffix = if variant == "stable" || variant == "lto" then "" else "-${variant}";
 in
 writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
   set -euo pipefail
@@ -89,7 +89,7 @@ writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
       patches_json=$(echo "$patches_json" | jq \
         --arg n "$patch_name" --arg u "$url" --arg h "$hash" \
         '. + [{"name": $n, "url": $u, "hash": $h}]')
-    done < <(echo "$pkgbuild_content" | grep -oP 'misc/nvidia/\K[^"]+\.patch' | sort -u)
+    done < <(echo "$pkgbuild_content" | grep -oP "misc/nvidia/\\K[^\"'\\s]+\\.patch" | sort -u)
 
     echo "$patches_json"
   }

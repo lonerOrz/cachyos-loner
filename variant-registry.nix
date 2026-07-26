@@ -25,6 +25,7 @@ let
     "lto-znver4" = {
       nvidiaVariant = "lto";
       kernelDropUpdate = true;
+      nvidiaDropUpdate = true;
     };
     lts = {
       nvidiaVariant = "lts";
@@ -100,23 +101,23 @@ let
   );
 
   topLevelNvidia = {
-    nvidia_cachyos = dropUpdate (
-      callOverride ./nvidia-cachyos { linuxPackages = cachyosPackages."cachyos-gcc"; }
-    );
+    nvidia_cachyos = callOverride ./nvidia-cachyos { linuxPackages = cachyosPackages."cachyos-gcc"; };
     nvidia_cachyos-open =
       dropUpdate
         (callOverride ./nvidia-cachyos { linuxPackages = cachyosPackages."cachyos-gcc"; }).open;
   };
 
   zfs = {
-    zfs_cachyos = prev.zfs_2_4.overrideAttrs (prevAttrs: {
-      src = cachyosPackages."cachyos-gcc".zfs_cachyos.src;
-      patches = [ ];
-      passthru = prevAttrs.passthru // {
-        kernelModuleAttribute = "zfs_cachyos";
-      };
-      postPatch = builtins.replaceStrings [ "grep --quiet '^Linux-M" ] [ "# " ] prevAttrs.postPatch;
-    });
+    zfs_cachyos = dropUpdate (
+      prev.zfs_2_4.overrideAttrs (prevAttrs: {
+        src = cachyosPackages."cachyos-gcc".zfs_cachyos.src;
+        patches = [ ];
+        passthru = prevAttrs.passthru // {
+          kernelModuleAttribute = "zfs_cachyos";
+        };
+        postPatch = builtins.replaceStrings [ "grep --quiet '^Linux-M" ] [ "# " ] prevAttrs.postPatch;
+      })
+    );
   };
 in
 linuxKernelAttrs // topLevelNvidia // nvidiaKernelAttrs // zfs
