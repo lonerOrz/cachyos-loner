@@ -95,6 +95,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          swap-storage: false
       - uses: pierotofy/set-swap-space@v1.0
         with:
           swap-size-gb: 20
@@ -124,6 +126,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          swap-storage: false
       - uses: pierotofy/set-swap-space@v1.0
         with:
           swap-size-gb: 20
