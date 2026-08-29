@@ -33,13 +33,13 @@ git hashes, and the generated `config-nix/*.nix` / `config-vars/*.json` snapshot
 | File                                                    | Role                                                                                                                          |
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `flake.nix`                                             | overlay + `packages` / `legacyPackages` / `needCacheDrvs`                                                                     |
-| `linux-cachyos/flavors.nix`                             | **single source of truth** for per-flavor build config (taste, configPath, cachyVars, versions, updateConfig, packagesExtend) |
+| `linux-cachyos/flavors.nix`                             | **single source of truth** for per-flavor build config (taste, configPath, cachyVars, versions, updateConfig, packagesExtend, nvidiaVariant, kernelAlias / kernelDropUpdate / nvidiaDropUpdate) |
 | `linux-cachyos/options.nix`                             | CachyOS Kconfig flag tables; `buildPkgbuildConfig` assembles the `scripts/config` flag list                                   |
 | `linux-cachyos/prepare.nix`                             | fetches kernel/patches/config/zfs; generates `.config`; `kernelPatches`; `extraVerPatch` (`EXTRAVERSION=-cachyos`)            |
 | `linux-cachyos/kernel.nix`                              | calls `linuxManualConfig` (mirrors nixpkgs `build.nix`); sets `modDirVersion` / `isLTS` / `features`                          |
 | `linux-cachyos/packages-for.nix`                        | builds the package set (kernel, zfs, nvidiaPackages wiring, LTO module overlay); imports nixpkgs `common-flags.nix` by path   |
 | `linux-cachyos/default.nix`                             | `mapAttrs` over `flavors.nix` → the 7 flavors                                                                                 |
-| `linux-cachyos/variant-registry.nix`                    | `variantMeta` table → exposes `linuxPackages_cachyos-*` / `linux_cachyos-*` / `nvidia_cachyos-*` / `zfs_cachyos`              |
+| `variant-registry.nix`                                  | derives variant exposure from `flavors.nix` (via `kernel.cachyConfig`) → `linuxPackages_cachyos-*` / `linux_cachyos-*` / `nvidia_cachyos-*` / `zfs_cachyos` |
 | `linux-cachyos/lib/{llvm-pkgs,llvm-module-overlay}.nix` | clang/LTO stdenv + out-of-tree module overrides                                                                               |
 | `nvidia-cachyos/default.nix`                            | `mkDriver` wrapper (mirrors nixpkgs `nvidia-x11/generic.nix`)                                                                 |
 | `linux-cachyos/update.nix`, `nvidia-cachyos/update.nix` | version/hash bumpers                                                                                                          |
@@ -149,10 +149,15 @@ the default and override selectively.
 - Our 610.x open driver has the `NV_LINUX_OF_GPIO_H_PRESENT` compat shim, so it
   builds on 7.x kernels. The `linux/of_gpio.h` hard-include error only affects
   old stock 595.x drivers (not built here).
-- The LTO nvidia is wired correctly: `packages-for.nix` `addOurs` resolves a
-  kernel's `nvidiaPackages.cachyos` to the **clang-built** `nvidia_cachyos-lto`
-  for LTO kernels (`stdenv.cc.isClang → "-lto"`), and to the GCC-built
-  `nvidia_cachyos` otherwise (suffix from `taste`).
+- The LTO nvidia is wired correctly: the GCC, LTO and LTO-Zen4 flavors share
+  one `version.json` (nvidia driver version/hashes/patches are identical
+  upstream — no `version-lto.json`). Each flavor's `nvidiaVariant`
+  (`"stable"`, `"lts"`, `"rc"`, `"server"`, `"hardened"`) maps 1:1 to
+  `version${suffix}.json`; `packages-for.nix` `addOurs` binds
+  `nvidiaPackages.cachyos` by importing `nvidia-cachyos` against the **set's
+  own kernel** (`linuxPackages = finalAttrs`), so `cachyOverride` kernels get
+  matching modules. `default.nix` applies `nukeDevRefs` when the target
+  kernel's stdenv `cc.isClang` (leaked `kernel.dev` references).
 
 ## Boundaries
 

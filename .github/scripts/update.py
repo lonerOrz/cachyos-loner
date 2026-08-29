@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-import subprocess
 import argparse
-import shutil
-import shlex
 import json
-import sys
 import os
+import shlex
+import shutil
 import signal
-from pathlib import Path
+import subprocess
+import sys
 from datetime import datetime
+from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FLAKE_REF = f"path:{REPO_ROOT.resolve()}"
 
 
 class Log:
+    """Terminal logger with ANSI color formatting."""
+
     USE_COLOR = sys.stdout.isatty()
     RESET = "\033[0m"
     BOLD = "\033[1m"
@@ -61,12 +63,14 @@ class Log:
 
 
 def get_log_file(log_dir: Path, pkg_name: str):
+    """Generate timestamped log path."""
     log_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d-%H%M%S")
     return log_dir / f"{pkg_name}-{ts}.log"
 
 
 def run_cmd(cmd, log_file=None, timeout=None):
+    """Execute command with process group management and stream logging."""
     print(f"  │ Command: {Log.c(' '.join(cmd), Log.DIM)}")
     stdout_file = open(log_file, "w") if log_file else subprocess.DEVNULL
 
@@ -112,6 +116,7 @@ def run_cmd(cmd, log_file=None, timeout=None):
 
 
 def get_all_package_info():
+    """Evaluate package metadata from package-info.nix."""
     expr_path = REPO_ROOT / ".github" / "scripts" / "package-info.nix"
     expr = f'import {expr_path} {{ flakeRef = "{FLAKE_REF}"; }}'
     try:
@@ -130,6 +135,7 @@ def get_all_package_info():
 
 
 def run_update_script(script, pkg_dir, pkg_name, extra_args, log_file=None):
+    """Execute custom update script command."""
     cmd = None
     if isinstance(script, str):
         parts = shlex.split(script)
@@ -144,10 +150,10 @@ def run_update_script(script, pkg_dir, pkg_name, extra_args, log_file=None):
         else:
             raise RuntimeError(f"updateScript not found: {script}")
     elif isinstance(script, list):
-        cmd = script
+        cmd = list(script)
     elif isinstance(script, dict):
         if "command" in script:
-            cmd = script["command"]
+            cmd = list(script["command"])
         else:
             raise RuntimeError(f"Unsupported script dict: {script}")
     else:
@@ -158,6 +164,7 @@ def run_update_script(script, pkg_dir, pkg_name, extra_args, log_file=None):
 
 
 def update_package(pkg_name, info, extra_args, log_dir) -> dict:
+    """Perform update for a single package."""
     if not info.get("autoUpdate", True):
         Log.skip(f"{pkg_name} (autoUpdate=false)")
         return {"name": pkg_name, "status": "SKIP", "msg": "autoUpdate=false"}
@@ -166,6 +173,7 @@ def update_package(pkg_name, info, extra_args, log_dir) -> dict:
     args = info.get("updateArgs", []) + extra_args
 
     try:
+        # Branch 1: execute Nix-native derivation updateScript.
         if info.get("isDerivation"):
             Log.run(f"Updating {pkg_name} via nix run...")
             cmd = ["nix", "run", f".#{pkg_name}.updateScript", "--"] + args
@@ -173,6 +181,7 @@ def update_package(pkg_name, info, extra_args, log_dir) -> dict:
             Log.ok(f"{pkg_name} derivation updated")
             return {"name": pkg_name, "status": "OK", "msg": "derivation updated"}
 
+        # Branch 2: execute custom shell/python script.
         script = info.get("updateScript")
         is_nixpkgs_nix_update = False
         if script is not None:
@@ -186,6 +195,7 @@ def update_package(pkg_name, info, extra_args, log_dir) -> dict:
             Log.ok(f"{pkg_name} script updated")
             return {"name": pkg_name, "status": "OK", "msg": "script updated"}
 
+        # Branch 3: fallback to standard nix-update tool.
         if not shutil.which("nix-update"):
             Log.fail("nix-update not found in PATH")
             return {"name": pkg_name, "status": "FAIL", "msg": "nix-update missing"}
@@ -205,6 +215,7 @@ def update_package(pkg_name, info, extra_args, log_dir) -> dict:
 
 
 def print_summary(results):
+    """Print global execution summary table."""
     if not results:
         return
     print()
@@ -232,7 +243,9 @@ def print_summary(results):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Update CachyOS kernel and driver versions"
+    )
     parser.add_argument("--package", help="Update only a specific package")
     parser.add_argument(
         "--commit", action="store_true", help="Commit changes after update"

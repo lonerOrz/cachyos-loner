@@ -38,7 +38,7 @@ let
       prefixed = builtins.filter (n: lib.hasPrefix prefix n) names;
       variants = map (n: lib.removePrefix prefix n) prefixed;
     in
-    # Sort by length descending so longest match wins (lto-znver4 before lto)
+    # Sort by length descending so longest match wins (lto-znver4 before lto).
     builtins.sort (a: b: (builtins.stringLength a) > (builtins.stringLength b)) (
       lib.unique (builtins.filter (v: v != "") variants)
     );
@@ -57,10 +57,8 @@ let
     in
     if found != null then found else "gcc";
 
-  # Three-way classification.
   isKernel = name: lib.strings.hasInfix "linux_cachyos" name || lib.strings.hasInfix ".kernel" name;
   isNvidia = name: lib.strings.hasInfix "nvidia" name;
-  # modules = everything else (zfs, v4l2loopback, acpi_call, etc.)
 
   isBroken =
     pkg:
@@ -69,46 +67,48 @@ let
     in
     r.success && r.value != false && r.value != null;
 
+  # Fast-path: filter against allowlist first to avoid evaluating 3500+ unneeded modules.
   extractModuleDrvs =
     variant: mod:
-    let
-      val = tryAttr linuxPkgs.${variant} mod;
-      prefix = "legacyPackages.${system}.${variant}.${mod}";
-    in
-    if val == null || (isDerivation val && isBroken val) then
+    if !(builtins.elem mod allowedModules) then
       [ ]
-    else if !(builtins.elem mod allowedModules) then
-      [ ]
-    else if isDerivation val then
-      [
-        {
-          name = prefix;
-          value = {
-            drvPath = tryDrvPath val;
-            variant = extractVariant prefix;
-          };
-        }
-      ]
-    else if builtins.isAttrs val && !(val ? type) then
-      map
-        (n: {
-          name = "${prefix}.${n}";
-          value = {
-            drvPath = tryDrvPath (tryAttr val n);
-            variant = extractVariant "${prefix}.${n}";
-          };
-        })
-        (
-          builtins.filter (
-            n:
-            let
-              v = tryAttr val n;
-            in
-            v != null && isDerivation v && !(isBroken v)
-          ) (builtins.attrNames val)
-        )
     else
-      [ ];
+      let
+        val = tryAttr linuxPkgs.${variant} mod;
+        prefix = "legacyPackages.${system}.${variant}.${mod}";
+      in
+      if val == null || (isDerivation val && isBroken val) then
+        [ ]
+      else if isDerivation val then
+        [
+          {
+            name = prefix;
+            value = {
+              drvPath = tryDrvPath val;
+              variant = extractVariant prefix;
+            };
+          }
+        ]
+      else if builtins.isAttrs val && !(val ? type) then
+        map
+          (n: {
+            name = "${prefix}.${n}";
+            value = {
+              drvPath = tryDrvPath (tryAttr val n);
+              variant = extractVariant "${prefix}.${n}";
+            };
+          })
+          (
+            builtins.filter (
+              n:
+              let
+                v = tryAttr val n;
+              in
+              v != null && isDerivation v && !(isBroken v)
+            ) (builtins.attrNames val)
+          )
+      else
+        [ ];
 
   flatPackages = lib.genAttrs (builtins.attrNames pkgs) (name: {
     drvPath = tryDrvPath pkgs.${name};
@@ -127,13 +127,9 @@ let
         [ ]
     ) (builtins.attrNames linuxPkgs)
   );
-
-  all = lib.filterAttrs (_: v: v.drvPath != null) (flatPackages // allNested);
-
 in
 {
-  # Tier 1: kernels — top-level only (flatPackages), no nested duplicates.
-  # Filter out the bare "linux_cachyos" alias (unqualified, no variant suffix).
+  # Tier 1: kernels — top-level only, excluding bare "linux_cachyos" alias.
   kernels = lib.filterAttrs (
     name: v: isKernel name && v.drvPath != null && name != "linux_cachyos"
   ) flatPackages;
@@ -141,6 +137,6 @@ in
   # Tier 2: nvidia — from flatPackages.
   nvidia = lib.filterAttrs (name: v: isNvidia name && v.drvPath != null) flatPackages;
 
-  # Tier 3: modules — from linuxPackages sets (allNested), excluding nvidia.
+  # Tier 3: modules — allowed out-of-tree modules from linuxPackages sets.
   modules = lib.filterAttrs (name: v: !(isNvidia name) && v.drvPath != null) allNested;
 }

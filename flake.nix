@@ -1,10 +1,14 @@
 {
   description = "Nix flake for linux_cachyos.";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
-  inputs.treefmt-nix.url = "github:numtide/treefmt-nix";
-  inputs.treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
 
   outputs =
     {
@@ -25,15 +29,6 @@
             flakes = inputs;
           };
 
-          callOverride =
-            path: attrs:
-            import path (
-              {
-                inherit final prev;
-              }
-              // attrs
-            );
-
           dropUpdate =
             pkg:
             let
@@ -52,7 +47,6 @@
               final
               prev
               cachyosPackages
-              callOverride
               dropUpdate
               ;
           };
@@ -98,6 +92,7 @@
               coreutils
             ];
             text = ''
+
               export GIT_EDITOR="true"
               export GIT_CONFIG_COUNT="1"
               export GIT_CONFIG_KEY_0="commit.gpgSign"

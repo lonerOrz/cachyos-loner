@@ -10,11 +10,14 @@ let
 
   utils = import ../utils.nix { lib = final.lib; };
 
+  # Upstream kernel versions, git commits, and patch checksums.
   mainVersions = importJSON ./versions.json;
   hardenedVersions = importJSON ./versions-hardened.json;
   ltsVersions = importJSON ./versions-lts.json;
   rcVersions = importJSON ./versions-rc.json;
   serverVersions = importJSON ./versions-server.json;
+
+  # Default Kconfig tunables snapshots from upstream PKGBUILDs.
   hardenedVars = importJSON ./config-vars/cachyos-hardened.json;
   ltoVars = importJSON ./config-vars/cachyos-lto.json;
   ltsVars = importJSON ./config-vars/cachyos-lts.json;
@@ -23,10 +26,12 @@ let
 
   pkgsLLVM = import ./lib/llvm-pkgs.nix inputs;
 
+  # Helper to suppress module recursion for kernels that don't build out-of-tree modules.
   preventBuildingKernelModules =
     _kernel: _final: prev:
     prev // { recurseForDerivations = false; };
 
+  # Stub derivation for unsupported platforms.
   brokenReplacement = final.hello.overrideAttrs (prevAttrs: {
     meta = prevAttrs.meta // {
       platform = [ ];
@@ -36,6 +41,7 @@ let
 
   isUnsupported = !isx86_64 || !isLinux;
 
+  # Core kernel instantiation function with cachyOverride support.
   mkCachyKernel =
     if isUnsupported then
       _attrs: {
@@ -76,6 +82,7 @@ let
   };
 in
 {
+  # Legacy alias pointer.
   cachyos-sched-ext = throw "\"sched-ext\" patches were merged with \"cachyos\" flavor.";
 }
 // builtins.listToAttrs (

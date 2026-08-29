@@ -8,23 +8,26 @@
   ogKernelConfigfile,
   commonMakeFlags,
 }:
+
 let
   inherit (cachyConfig.versions.linux) version;
   majorMinor = lib.versions.majorMinor version;
 
+  # Upstream CachyOS patch queue.
   patches-src = fetchFromGitHub {
     owner = "CachyOS";
     repo = "kernel-patches";
     inherit (cachyConfig.versions.patches) rev hash;
   };
 
+  # Upstream CachyOS flavor config repo.
   config-src = fetchFromGitHub {
     owner = "CachyOS";
     repo = "linux-cachyos";
     inherit (cachyConfig.versions.config) rev hash;
   };
 
-  # Use GitHub releases tarball (PR #700) if tagrel is provided
+  # Fetch pre-sauced CachyOS GitHub release tarball if tagrel is set; fallback to kernel.org.
   src =
     if cachyConfig.versions.linux ? tagrel then
       let
@@ -43,11 +46,12 @@ let
         inherit (cachyConfig.versions.linux) hash;
       };
 
+  # Select scheduler patches based on configured cpuSched.
   schedPatches =
     if cachyConfig.cpuSched == "eevdf" then
       [ ]
     else if cachyConfig.cpuSched == "hardened" then
-      [ ] # BORE disabled in CachyOS/linux-cachyos/commit/4ffae8ab9947f35495dfa7b62b7a22f023488dfb
+      [ ]
     else if cachyConfig.cpuSched == "bore" then
       [ "${patches-src}/${majorMinor}/sched/0001-bore-cachy.patch" ]
     else if cachyConfig.cpuSched == "bmq" then
@@ -85,7 +89,7 @@ let
     else
       throw "Unsupported cachyos _cpu_sched=${toString cachyConfig.cpuSched}";
 
-  # If tagrel is provided, base patch is in the GitHub release tarball
+  # Combine base patchset (if not pre-patched in release tarball) with sched and misc patches.
   patches =
     lib.optionals (!(cachyConfig.versions.linux ? tagrel)) [
       "${patches-src}/${majorMinor}/all/0001-cachyos-base-all.patch"
@@ -114,6 +118,7 @@ stdenv.mkDerivation (finalAttrs: {
   makeFlags = commonMakeFlags;
 
   buildPhase = ''
+
     runHook preBuild
 
     cp "${config-src}/${cachyConfig.taste}/config" ".config"
@@ -126,6 +131,7 @@ stdenv.mkDerivation (finalAttrs: {
   '';
 
   installPhase = ''
+
     runHook preInstall
 
     cp .config $out
@@ -134,7 +140,6 @@ stdenv.mkDerivation (finalAttrs: {
   '';
 
   meta = ogKernelConfigfile.meta // {
-    # at the time of this writing, they don't have config files for aarch64
     platforms = [ "x86_64-linux" ];
   };
 
@@ -146,6 +151,7 @@ stdenv.mkDerivation (finalAttrs: {
       ;
     kernelPatches = patches;
     extraVerPatch = ''
+
       sed -Ei"" 's/EXTRAVERSION = ?(.*)$/EXTRAVERSION = \1${cachyConfig.versions.suffix}/g' Makefile
     '';
   };

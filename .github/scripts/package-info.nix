@@ -4,6 +4,7 @@ let
   flake = builtins.getFlake flakeRef;
   pkgs = flake.packages.x86_64-linux;
 
+  # Inspect package passthru to determine updateScript capabilities.
   packageInfo =
     name:
     let

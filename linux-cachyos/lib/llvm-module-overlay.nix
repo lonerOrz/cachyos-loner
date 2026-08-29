@@ -8,6 +8,7 @@ let
   projectUtils = import ../../utils.nix { lib = final.lib; };
   inherit (projectUtils) markBroken overrideFull multiOverride;
 
+  # Prevent rebuilding X11/GUI nvidia-settings dependencies under pkgsLLVM.
   fixNoVideo =
     prevDrv:
     prevDrv.overrideAttrs (prevAttrs: {
@@ -22,6 +23,7 @@ with prevModules;
     inherit (final) pciutils gettext which;
   };
 
+  # Fix Clang-specific warning flag differences for evdi module.
   evdi =
     multiOverride prevModules.evdi
       {
@@ -33,20 +35,24 @@ with prevModules;
         };
         makeFlags = prevAttrs.makeFlags ++ [
           "CFLAGS=${
-            builtins.replaceStrings [ "discarded-qualifiers" ] [ "ignored-qualifiers" ] prevAttrs.env.CFLAGS
+            builtins.replaceStrings [ "discarded-qualifiers" ] [ "ignored-qualifiers" ] (
+              prevAttrs.env.CFLAGS or ""
+            )
           }"
         ];
         postPatch = ''
+
           substituteInPlace Makefile \
             --replace-fail 'discarded-qualifiers' 'ignored-qualifiers'
         '';
-        # Don't build userspace stuff
+        # Skip userspace library build in kernel package set.
         postBuild = "";
         installPhase =
           builtins.replaceStrings [ "install -Dm755 library/libevdi.so" ] [ "#" ]
             prevAttrs.installPhase;
       });
 
+  # Fix stock nvidia_x11 package builds under Clang.
   nvidia_x11 = fixNoVideo nvidia_x11;
   nvidia_x11_beta = fixNoVideo nvidia_x11_beta;
   nvidia_x11_latest = fixNoVideo nvidia_x11_latest;
@@ -70,7 +76,7 @@ with prevModules;
     }
   );
 
-  # perf needs systemtap fixed first
+  # perf requires systemtap which is unsupported under LLVM LTO.
   perf = markBroken perf;
 
   ryzen-smu = prevModules.ryzen-smu.overrideAttrs (prevAttrs: {

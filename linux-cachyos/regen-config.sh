@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-set -eu
+set -euo pipefail
 
-for flavor in cachyos{-gcc,-hardened,-lto,-lts,-rc,-server}; do
-  echo "Recreating $flavor"
+# Resolve repository root directory regardless of invocation path.
+REPO_ROOT="$(cd "$(dirname "''${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+
+# Regenerate standard flavor snapshots.
+for flavor in gcc hardened lto lts rc server; do
+  echo "Recreating config-nix for flavor: $flavor"
   out="$(nix build ".#packages.x86_64-linux.linux_cachyos-${flavor}.kconfigToNix" --no-link --print-out-paths)"
-  [ -s "$out" ] && cat "$out" >"linux-cachyos/config-nix/${flavor}.x86_64-linux.nix"
+  if [[ -s "$out" ]]; then
+    cat "$out" >"linux-cachyos/config-nix/cachyos-${flavor}.x86_64-linux.nix"
+  fi
 done
 
-# znver4 uses a different derivation name but shares the config-nix file
-echo "Recreating cachyos-lto-znver4"
-out="$(nix build ".#packages.x86_64-linux.linux_cachyos-lto-znver4.kconfigToNix" --no-link --print-out-paths)"
-[ -s "$out" ] && cat "$out" >"linux-cachyos/config-nix/cachyos-znver4.x86_64-linux.nix"
+echo "Successfully regenerated all config-nix snapshots."

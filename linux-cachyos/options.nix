@@ -1,7 +1,7 @@
 { lib }:
 
 let
-  # 枚举型 tunable：值 → scripts/config flag 列表
+  # Enumerated tunables mapped to scripts/config flag lists.
   enumFlags = {
     mArch = {
       NATIVE = [
@@ -93,7 +93,7 @@ let
     };
   };
 
-  # 布尔型 toggle：开启 → flag 列表
+  # Boolean feature toggles.
   toggleFlags = {
     ccHarder = [
       "-d CC_OPTIMIZE_FOR_PERFORMANCE"
@@ -126,7 +126,7 @@ let
     "--set-val CONFIG_DRM_PANIC_SCREEN_QR_VERSION 40"
   ];
 
-  # 恒开前缀
+  # Base flags applied to all CachyOS kernels.
   base = [
     "--set-val NR_CPUS 320"
     "-e LRU_GEN"
@@ -168,7 +168,7 @@ let
     "-d DEBUG_PREEMPT"
   ];
 
-  # ticksHz 由数值驱动，非查表
+  # Dynamic timer frequency selection.
   ticksHzFlags =
     n:
     if n == 300 then
@@ -183,7 +183,7 @@ let
         "-e HZ_${toString n}"
       ];
 
-  # mArch 特例：GENERIC_V[1-4] 需解析版本号
+  # Microarchitecture flags (parsing NATIVE, ZEN4, or GENERIC_V[1-4]).
   archFlags =
     m:
     if m == null then
@@ -206,6 +206,7 @@ let
           "--set-val X86_64_VERSION ${builtins.elemAt m' 0}"
         ];
 
+  # Assemble full scripts/config command line argument list.
   buildPkgbuildConfig =
     c:
     let

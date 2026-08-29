@@ -35,6 +35,7 @@ let
 in
 
 writeShellScriptBin "update-cachyos" ''
+
   set -euo pipefail
   PATH=${path}
 
@@ -43,11 +44,13 @@ writeShellScriptBin "update-cachyos" ''
   localVer=$(jq -r .linux.version < "$srcJson")
   localTagrel=$(jq -r '.linux.tagrel // -1' < "$srcJson")
 
+  # Fetch upstream CachyOS kernel PKGBUILD.
   fetch_pkgbuild() {
     curl -fsSL --http1.1 --connect-timeout 10 --max-time 30 \
       "https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos${suffix}/PKGBUILD"
   }
 
+  # Parse version components and construct release source tag.
   parse_all() {
     awk -F= '
       /^[[:space:]]*_major[[:space:]]*=/ { gsub(/[[:space:]]/, "", $2); major=$2 }
@@ -74,8 +77,14 @@ writeShellScriptBin "update-cachyos" ''
   pkgbuild=$(fetch_pkgbuild)
   read -r latestVer latestTagrel srcTag < <(parse_all <<< "$pkgbuild")
 
+  if [[ -z "$latestVer" || -z "$latestTagrel" ]]; then
+    echo "ERROR: Failed to parse kernel version from upstream PKGBUILD" >&2
+    exit 1
+  fi
+
   srcUrl="https://github.com/CachyOS/linux/releases/download/''${srcTag}/''${srcTag}.tar.gz"
 
+  # Exit early if version has not changed.
   if [[ "''${FORCE:-0}" != "1" && "$localVer" == "$latestVer" && "$localTagrel" == "$latestTagrel" ]]; then
     echo "Already up to date: $latestVer-$latestTagrel"
     exit 0
@@ -83,6 +92,7 @@ writeShellScriptBin "update-cachyos" ''
 
   echo "Updating: $localVer-$localTagrel -> $latestVer-$latestTagrel"
 
+  # 1. Prefetch kernel source tarball.
   latestHash=$(nix-prefetch-url --type sha256 "$srcUrl" \
     | xargs nix-hash --to-sri --type sha256)
 
@@ -90,21 +100,30 @@ writeShellScriptBin "update-cachyos" ''
     nix-prefetch-git --quiet "$@" | jq -r '.rev + " " + .hash'
   }
 
-  read rev hash < <(prefetch_git https://github.com/CachyOS/linux-cachyos.git)
-  configRev=$rev
-  configHash=$hash
+  # 2. Prefetch linux-cachyos config repo in a single pass.
+  configJson=$(nix-prefetch-git --quiet https://github.com/CachyOS/linux-cachyos.git)
+  configRev=$(jq -r .rev <<< "$configJson")
+  configHash=$(jq -r .hash <<< "$configJson")
+  configPath=$(jq -r .path <<< "$configJson")
 
-  configPath=$(nix-prefetch-git --quiet https://github.com/CachyOS/linux-cachyos.git | jq -r .path)
-
+  # 3. Prefetch kernel patches repo.
   read rev hash < <(prefetch_git https://github.com/CachyOS/kernel-patches.git)
   patchesRev=$rev
   patchesHash=$hash
 
+  # 4. Extract and prefetch paired ZFS commit.
   zfsRev=$(grep -Po "(?<=zfs.git#commit=)[^\"'\\s]+" \
-    "$configPath/linux-cachyos${suffix}/PKGBUILD")
+    "$configPath/linux-cachyos${suffix}/PKGBUILD" || true)
 
-  read _ zfsHash < <(prefetch_git https://github.com/CachyOS/zfs.git --rev "$zfsRev")
+  if [[ -n "$zfsRev" ]]; then
+    read _ zfsHash < <(prefetch_git https://github.com/CachyOS/zfs.git --rev "$zfsRev")
+  else
+    echo "WARNING: zfs commit pin not found in PKGBUILD; preserving existing pin" >&2
+    zfsRev=$(jq -r .zfs.rev < "$srcJson")
+    zfsHash=$(jq -r .zfs.hash < "$srcJson")
+  fi
 
+  # Update versions JSON atomically.
   jq \
     --arg latestVer "$latestVer" \
     --arg latestHash "$latestHash" \
@@ -126,6 +145,7 @@ writeShellScriptBin "update-cachyos" ''
       .zfs.hash = $zfsHash
     ' "$srcJson" | sponge "$srcJson"
 
+  # Regenerate static config-nix snapshots.
   failed_flavors=()
   for flv in ${flavorsStr}; do
     out=$(nix build \
