@@ -1,4 +1,5 @@
 name: Check
+
 on:
   pull_request:
   push:
@@ -13,6 +14,7 @@ permissions:
   packages: write
 
 jobs:
+  # Verify that CI matrix is in sync with registered flavors.
   validate-matrix:
     runs-on: ubuntu-latest
     steps:
@@ -32,6 +34,7 @@ jobs:
             exit 1
           fi
 
+  # Fast check: verify kernel patches and olddefconfig resolution without full compilation.
   check:
     needs: validate-matrix
     strategy:
@@ -57,7 +60,7 @@ jobs:
       - name: Verify Kernel Configuration and Patches
         run: nix build .#linux_cachyos-${{ matrix.variant }}.configfile -L --impure
 
-  # Variant → checked-in config-nix file. Keep in sync with config-nix/ directory.
+  # Verify formatting with treefmt.
   formatting-check:
     runs-on: ubuntu-latest
     steps:
@@ -71,6 +74,7 @@ jobs:
       - name: Check Code Formatting
         run: nix build .#checks.x86_64-linux.formatting -L --impure
 
+  # Verify checked-in config-nix snapshots match current kconfigToNix output.
   config-nix-check:
     needs: [validate-matrix, formatting-check]
     strategy:
@@ -122,6 +126,7 @@ jobs:
             diff <(cat result) linux-cachyos/config-nix/${{ matrix.config_file }}
           fi
 
+  # Aggregated gate for branch protection and Mergify.
   check-summary:
     needs: [check, formatting-check, config-nix-check]
     if: always()

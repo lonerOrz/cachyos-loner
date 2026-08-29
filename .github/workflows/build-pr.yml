@@ -9,6 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Compare derivation paths between Head (PR) and Base (Main) branches.
   detect:
     runs-on: ubuntu-latest
     outputs:
@@ -49,6 +50,7 @@ jobs:
           PR_JSON=$(cat "$RUNNER_TEMP/pr_all.json")
           BASE_JSON=$(cat "$RUNNER_TEMP/base_all.json")
 
+          # Filter only packages whose drvPath has changed compared to base branch.
           get_changes() {
             local category=$1
             jq -n \
@@ -74,19 +76,20 @@ jobs:
             --argjson modules "$MODULES" \
             '($nvidia | map({ package: ., type: "nvidia" })) + ($modules | map({ package: ., type: "module" }))' -c)
 
-          if [ "$KERNELS" = "[]" ] && [ "$EXTRAS" = "[]" ]; then
+          if [[ "$KERNELS" == "[]" && "$EXTRAS" == "[]" ]]; then
             RUN_BUILD="false"
           else
             RUN_BUILD="true"
           fi
 
-          echo "kernels=$KERNELS" >> $GITHUB_OUTPUT
-          echo "extras=$EXTRAS" >> $GITHUB_OUTPUT
-          echo "run_build=$RUN_BUILD" >> $GITHUB_OUTPUT
+          echo "kernels=$KERNELS" >> "$GITHUB_OUTPUT"
+          echo "extras=$EXTRAS" >> "$GITHUB_OUTPUT"
+          echo "run_build=$RUN_BUILD" >> "$GITHUB_OUTPUT"
 
+  # Tier 1: Build only modified kernel derivations.
   build-kernels:
     needs: detect
-    if: needs.detect.outputs.run_build == 'true' && needs.detect.outputs.kernels != '[]'
+    if: needs.detect.outputs.run_build == 'true' && needs.detect.outputs.kernels != '[]' && needs.detect.outputs.kernels != ''
     strategy:
       fail-fast: false
       matrix:
@@ -115,9 +118,10 @@ jobs:
       - name: Build Kernel
         run: nix build .#${{ matrix.package }} -L --impure
 
+  # Tier 2 & 3: Build only modified nvidia drivers and kernel modules.
   build-extras:
     needs: [detect, build-kernels]
-    if: ${{ !failure() && !cancelled() && needs.detect.outputs.run_build == 'true' && needs.detect.outputs.extras != '[]' }}
+    if: ${{ !failure() && !cancelled() && needs.detect.outputs.run_build == 'true' && needs.detect.outputs.extras != '[]' && needs.detect.outputs.extras != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -147,6 +151,7 @@ jobs:
         run: nix build .#${{ matrix.package }} -L --impure
         continue-on-error: ${{ matrix.type == 'module' }}
 
+  # Aggregate status for PR checks and Mergify auto-merge.
   required-checks:
     if: always()
     needs: [detect, build-kernels, build-extras]

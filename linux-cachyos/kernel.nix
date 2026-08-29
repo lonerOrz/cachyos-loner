@@ -7,9 +7,9 @@
   linuxManualConfig,
   stdenv,
   commonMakeFlags,
-  # Weird injections
   kernelPatches ? [ ],
 }:
+
 let
   version = cachyConfig.versions.linux.version;
 in
@@ -19,11 +19,15 @@ in
     version
     ;
   inherit (configfile) src;
+
+  # Ensure module directory matches EXTRAVERSION appended by CachyOS.
   modDirVersion = lib.versions.pad 3 "${version}${cachyConfig.versions.suffix}";
 
   inherit config configfile;
+  # Disallow IFD since config is passed as a pre-transformed Nix attribute set.
   allowImportFromDerivation = false;
 
+  # Format raw patch paths into standard Nixpkgs kernel patch structures.
   kernelPatches =
     kernelPatches
     ++ builtins.map (filename: {
@@ -40,8 +44,10 @@ in
   };
 }).overrideAttrs
   (prevAttrs: {
+    # Append EXTRAVERSION suffix (-cachyos) directly to top-level Makefile.
     postPatch = prevAttrs.postPatch + configfile.extraVerPatch;
-    # bypasses https://github.com/NixOS/nixpkgs/issues/216529
+
+    # Expose metadata and features on kernel passthru.
     passthru = prevAttrs.passthru // {
       inherit cachyConfig kconfigToNix commonMakeFlags;
       features = {

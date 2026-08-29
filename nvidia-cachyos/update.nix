@@ -22,9 +22,11 @@ let
     git
   ];
 
-  suffix = if variant == "stable" || variant == "lto" then "" else "-${variant}";
+  # Map variant to local JSON and upstream PKGBUILD suffix.
+  suffix = if variant == "stable" then "" else "-${variant}";
 in
 writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
+
   set -euo pipefail
   PATH=${path}
 
@@ -35,9 +37,15 @@ writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
     echo "{}" > "$srcJson"
   fi
 
+  # Fetch upstream PKGBUILD.
   pkgbuild=$(curl -fsSL --http1.1 --connect-timeout 10 --max-time 30 \
     "https://raw.githubusercontent.com/CachyOS/linux-cachyos/master/linux-cachyos${suffix}/PKGBUILD")
   latestVer=$(echo "$pkgbuild" | grep -Po '(?<=_nv_ver=)([^[:space:]]+)')
+
+  if [[ -z "$latestVer" ]]; then
+    echo "ERROR: Could not parse _nv_ver from upstream PKGBUILD" >&2
+    exit 1
+  fi
 
   localVer=$(jq -r '.version // ""' < "$srcJson")
   mainHash=$(jq -r '.hash // ""' < "$srcJson")
@@ -47,16 +55,20 @@ writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
   persistencedHash=$(jq -r '.persistencedHash // ""' < "$srcJson")
 
   versionChanged=false
-
   if [[ "$localVer" != "$latestVer" ]]; then
     echo "NVIDIA Version changed: $localVer -> $latestVer"
     versionChanged=true
   fi
 
-  # Extract kernel major version for patch discovery
+  # Extract kernel major version for patch discovery.
   kernelMajor=$(echo "$pkgbuild" | grep -Po '(?<=_major=)([^[:space:]]+)')
+  if [[ -z "$kernelMajor" ]]; then
+    echo "ERROR: Could not parse _major from upstream PKGBUILD" >&2
+    exit 1
+  fi
   echo "Kernel major version: $kernelMajor"
 
+  # Hash fetch helpers complying with Nixpkgs fetch contracts.
   fetch_hash() {
     nix-prefetch-url "$1" | xargs nix-hash --to-sri --type sha256
   }
@@ -70,32 +82,32 @@ writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
     local tmp
     tmp=$(mktemp)
     curl -fsSL --http1.1 --connect-timeout 10 --max-time 30 "$url" -o "$tmp"
-    # Raw file hash — matches fetchurl in default.nix (no normalization)
     nix-hash --flat --type sha256 "$tmp" | xargs nix-hash --to-sri --type sha256
     rm -f "$tmp"
   }
 
-  # Parse nvidia patches from PKGBUILD source array — only patches that
-  # CachyOS actually applies to the open driver, not all files in the dir.
+  # Discover nvidia open driver patches listed in PKGBUILD.
   discover_kernel_patches() {
     local major="$1"
     local pkgbuild_content="$2"
 
     local patches_json="[]"
     while IFS= read -r patch_name; do
+      [[ -z "$patch_name" ]] && continue
       local url hash
       url="https://raw.githubusercontent.com/CachyOS/kernel-patches/master/$major/misc/nvidia/$patch_name"
       hash=$(fetchpatch_hash "$url")
       patches_json=$(echo "$patches_json" | jq \
         --arg n "$patch_name" --arg u "$url" --arg h "$hash" \
         '. + [{"name": $n, "url": $u, "hash": $h}]')
-    done < <(echo "$pkgbuild_content" | grep -oP "misc/nvidia/\\K[^\"'\\s]+\\.patch" | sort -u)
+    done < <(echo "$pkgbuild_content" | grep -oP "misc/nvidia/\\K[^\"'\\s]+\\.patch" | sort -u || true)
 
     echo "$patches_json"
   }
 
   changed=false
 
+  # Update driver version and hashes when version changes.
   if [[ "$versionChanged" == "true" ]]; then
     echo "Fetching hashes for new version $latestVer..."
     mainHash=$(fetch_hash "https://download.nvidia.com/XFree86/Linux-x86_64/$latestVer/NVIDIA-Linux-x86_64-$latestVer.run")
@@ -116,7 +128,7 @@ writeShellScriptBin "update-nvidia-cachyos-${variant}" ''
     changed=true
   fi
 
-  # Always re-discover kernel patches (they can change independently of driver version)
+  # Always re-discover kernel patches (they can update independently of driver version).
   echo "Discovering kernel patches for major $kernelMajor..."
   kernelPatches=$(discover_kernel_patches "$kernelMajor" "$pkgbuild")
   patchCount=$(echo "$kernelPatches" | jq 'length')

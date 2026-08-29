@@ -1,6 +1,10 @@
 {
   stdenv,
   taste,
+  nvidiaVariant ? "stable",
+  kernelAlias ? null,
+  kernelDropUpdate ? false,
+  nvidiaDropUpdate ? false,
   configPath,
   versions,
   callPackage,
@@ -26,6 +30,7 @@
   withNTSync ? true,
   description ? "Linux EEVDF-BORE scheduler Kernel by CachyOS with other patches and improvements",
   inputs,
+  ...
 }:
 
 let
@@ -40,15 +45,15 @@ let
 
   nullIfEmpty = str: if str == "" then null else str;
 
-  # Config vars that are Nix-incompatible (need interactive TUI/GUI, running system, or /proc):
-  #   _makenconfig, _makexconfig, _localmodcfg, _localmodcfg_path, _use_current
-  # Config vars handled elsewhere (overlay suffix or separate packages):
-  #   _use_lto_suffix, _use_gcc_suffix, _build_zfs, _build_nvidia_open, _build_r8125
+  # Normalized configuration and metadata dictionary attached to kernel passthru.
   cachyConfig = {
     inherit
       taste
       versions
       cachyVars
+      kernelAlias
+      kernelDropUpdate
+      nvidiaDropUpdate
       withPrivateHDR
       withDAMON
       withNTSync
@@ -74,6 +79,7 @@ let
     withoutDebug = !(yesOrNo (cachyVars."_build_debug" or "no"));
   };
 
+  # Helper to remove updateScript attributes from derivations.
   dropAttrsUpdateScript = builtins.mapAttrs (
     _k: v:
     if (v.passthru.updateScript or null) != null then
@@ -84,10 +90,7 @@ let
       v
   );
 
-  # The three phases of the config
-  # - First we apply the changes from their PKGBUILD using kconfig;
-  # - Then we NIXify it (in the update-script);
-  # - Last state is importing the NIXified version for building.
+  # Phase 1: prepare .config by applying CachyOS patches and Kconfig options.
   preparedConfigfile = callPackage ./prepare.nix {
     inherit
       cachyConfig
@@ -97,11 +100,14 @@ let
       commonMakeFlags
       ;
   };
+
+  # Phase 2: generate Nix attribute set from prepared .config.
   kconfigToNix = inputs.final.callPackage ./lib/kconfig-to-nix.nix {
     configfile = preparedConfigfile;
   };
   linuxConfigTransformed = import configPath;
 
+  # Phase 3: toolchain makeFlags setup (swapping bintools for LTO builds).
   commonMakeFlagsBintools =
     import "${inputs.flakes.nixpkgs}/pkgs/os-specific/linux/kernel/common-flags.nix"
       {
@@ -129,6 +135,7 @@ let
     else
       commonMakeFlagsBintools;
 
+  # Phase 4: build kernel derivation.
   kernel = callPackage ./kernel.nix {
     inherit
       cachyConfig
@@ -141,6 +148,7 @@ let
     config = linuxConfigTransformed;
   };
 
+  # Attach updateScript if configured for this flavor.
   kernelWithUpdateScript = kernel.overrideAttrs (prevAttrs: {
     passthru = prevAttrs.passthru // {
       updateScript =
@@ -148,12 +156,13 @@ let
           inputs.final.callPackage ./update.nix { inherit updateConfig; }
         else
           inputs.final.writeShellScriptBin "update-cachyos" ''
+
             echo "${taste}: No independent updateScript. Please run the updateScript for linux_cachyos-gcc instead."
           '';
     };
   });
 
-  # CachyOS repeating stuff.
+  # Custom out-of-tree module injection (ZFS and paired NVIDIA driver).
   addOurs = finalAttrs: prevAttrs: {
     kernel_configfile = prevAttrs.kernel.configfile;
     zfs_cachyos =
@@ -183,18 +192,11 @@ let
         });
     nvidiaPackages = prevAttrs.nvidiaPackages.extend (
       _finalNV: _prevNV: {
-        cachyos =
-          let
-            suffix = if stdenv.cc.isClang then "-lto" else lib.strings.removePrefix "linux-cachyos" taste;
-            attrName = "nvidia_cachyos${suffix}";
-          in
-          if inputs.final ? ${attrName} then
-            let
-              tryEval = builtins.tryEval inputs.final.${attrName};
-            in
-            if tryEval.success then tryEval.value else null
-          else
-            null;
+        cachyos = import ../nvidia-cachyos {
+          inherit (inputs) final prev;
+          variant = nvidiaVariant;
+          linuxPackages = finalAttrs;
+        };
       }
     );
     inherit cachyOverride;
@@ -202,6 +204,7 @@ let
 
   llvmModuleOverlay = import ./lib/llvm-module-overlay.nix inputs;
 
+  # Build standard kernelPackages set and extend with custom overlays.
   basePackages = linuxPackagesFor kernelWithUpdateScript;
   packagesWithOurs = basePackages.extend addOurs;
   packagesWithLtoModuleOverlay =
@@ -223,7 +226,6 @@ let
     "zfs_unstable"
     "lkrg"
     "drbd"
-    # these kernelPackages.* are now pkgs.*
     "system76-power"
     "system76-scheduler"
     "perf"
@@ -256,5 +258,5 @@ packagesWithRightPlatforms
 // {
   _description = "Kernel and modules for ${description}";
   _version = "${versions.linux.version}${versionSuffix}";
-  inherit (basePackages) kernel; # This one still has the updateScript
+  inherit (basePackages) kernel;
 }

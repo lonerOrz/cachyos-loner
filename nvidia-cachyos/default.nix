@@ -11,9 +11,11 @@ let
   projectUtils = import ../utils.nix { lib = final.lib; };
   inherit (projectUtils) overrideFull;
 
+  # Map variant name to matching version JSON (stable -> version.json).
   suffix = if variant == "stable" then "" else "-${variant}";
   versions = importJSON (./. + "/version${suffix}.json");
 
+  # Fetch out-of-tree kernel patches specified in version JSON.
   kernelPatches = map (p: final.fetchurl { inherit (p) name url hash; }) (
     versions.kernelPatches or [ ]
   );
@@ -22,7 +24,7 @@ let
 
   cachyosLinuxPackages = linuxPackages;
 
-  # Mirrors the logic in pkgs/linux-cachyos/lib/llvm-module-overlay.nix
+  # Prevent rebuilding X11/GUI nvidia-settings dependencies under LLVM.
   fixNoVideo =
     prevDrv:
     prevDrv.overrideAttrs (prevAttrs: {
@@ -47,17 +49,17 @@ if cachyosLinuxPackages ? nvidiaPackages then
       }
     );
 
-    needsDevRefFix = variant == "lto";
+    # Detect whether target kernel was built with Clang/LLVM.
+    needsDevRefFix = cachyosLinuxPackages.stdenv.cc.isClang or false;
 
-    # Work around leaked kernel.dev references in NVIDIA kernel
-    # modules on the CachyOS LTO kernel. These references trip
-    # the strict allowedReferences check in nixpkgs.
+    # Strip leaked kernel.dev store path references from kernel modules on LTO kernels.
     nukeDevRefs =
       drv:
       drv.overrideAttrs (old: {
         nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ final.removeReferencesTo ];
 
         postFixup = (old.postFixup or "") + ''
+
           find $out/lib/modules -name '*.ko*' \
             -exec remove-references-to \
               -t ${cachyosLinuxPackages.kernel.dev} {} \; \
@@ -70,7 +72,6 @@ if cachyosLinuxPackages ? nvidiaPackages then
     if needsDevRefFix then
       {
         open = if driver.open != null then nukeDevRefs driver.open else null;
-
         mod = if driver.mod != null then nukeDevRefs driver.mod else null;
       }
     else
@@ -78,6 +79,7 @@ if cachyosLinuxPackages ? nvidiaPackages then
   )
 else
   final.runCommand "unsupported-nvidia-cachyos" { } ''
+
     mkdir -p $out
     echo "nvidia-cachyos is unsupported on ${final.system}" > $out/README
   ''

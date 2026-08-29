@@ -1,4 +1,5 @@
 name: Bump
+
 on:
   workflow_dispatch:
   schedule:
@@ -9,6 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Daily automated version check, bump, and PR creation.
   bump:
     runs-on: ubuntu-latest
     permissions:
@@ -46,23 +48,34 @@ jobs:
           git checkout -B "$BRANCH_NAME"
           BASE_SHA=$(git rev-parse HEAD)
 
+          # Run centralized update script across kernels and drivers.
           nix run .#update --impure
 
-          if [ "$(git rev-parse HEAD)" != "$BASE_SHA" ]; then
+          # Check if commits were created or if working tree changed.
+          if [[ "$(git rev-parse HEAD)" != "$BASE_SHA" || -n "$(git status --porcelain)" ]]; then
+            # Cleanly commit any remaining untracked changes if needed.
+            if [[ -n "$(git status --porcelain)" ]]; then
+              git add .
+              git commit -m "chore(auto-bump): update generated snapshots"
+            fi
+
             git push origin "$BRANCH_NAME" --force
 
             COMMIT_LIST=$(git log --pretty=format:"* %s" "$BASE_SHA"..HEAD)
 
-            PR_BODY="Automated routine update for active CachyOS kernels and NVIDIA drivers.
+            PR_BODY=$(cat <<EOF
+          Automated routine update for active CachyOS kernels and NVIDIA drivers.
 
-            ### Updated Components in this PR:
-            $COMMIT_LIST
+          ### Updated Components in this PR:
+          $COMMIT_LIST
 
-            > Note: Unchanged or failed components will be retried automatically in the next scheduled run."
+          > Note: Unchanged or failed components will be retried automatically in the next scheduled run.
+          EOF
+          )
 
             PR_NUMBER=$(gh pr list --head "$BRANCH_NAME" --state open --json number --jq '.[0].number // empty')
 
-            if [ -z "$PR_NUMBER" ]; then
+            if [[ -z "$PR_NUMBER" ]]; then
               gh pr create \
                 --title "bump(cachyos): automated kernels and drivers update" \
                 --body "$PR_BODY" \
@@ -71,9 +84,12 @@ jobs:
             else
               gh pr edit "$PR_NUMBER" --body "$PR_BODY"
 
-              COMMENT_BODY="This pull request has been updated with the following changes:
+              COMMENT_BODY=$(cat <<EOF
+          This pull request has been updated with the following changes:
 
-              $COMMIT_LIST"
+          $COMMIT_LIST
+          EOF
+          )
               gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY"
             fi
           fi
