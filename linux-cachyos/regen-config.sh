@@ -9,7 +9,7 @@ cd "$REPO_ROOT"
 for flavor in gcc hardened lto lts rc server; do
   echo "Recreating config-nix for flavor: $flavor"
   out="$(nix build ".#packages.x86_64-linux.linux_cachyos-${flavor}.kconfigToNix" --no-link --print-out-paths)"
-  if [[ -s "$out" ]]; then
+  if [[ -s $out ]]; then
     cat "$out" >"linux-cachyos/config-nix/cachyos-${flavor}.x86_64-linux.nix"
   fi
 done

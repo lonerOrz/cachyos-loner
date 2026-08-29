@@ -26,9 +26,9 @@ if [[ ! -e ./linux-cachy/.PKGINFO ]]; then
 fi
 
 # Build Nix target (kernel binary or configfile).
-if [[ "$BUILD_TARGET" == "kernel" ]]; then
+if [[ $BUILD_TARGET == "kernel" ]]; then
   nix build --out-link ./linux-cachyos "$FLAKE_DIR#${BUILD_PKG}"
-elif [[ "$BUILD_TARGET" == "configfile" ]]; then
+elif [[ $BUILD_TARGET == "configfile" ]]; then
   nix build --out-link ./linux-cachyos.kconfig "$FLAKE_DIR#${BUILD_PKG}.passthru.configfile"
 else
   echo "Unsupported BUILD_TARGET: $BUILD_TARGET" >&2
@@ -50,7 +50,7 @@ chmod +x "$EXTRACTOR"
 
 # Locate official CachyOS vmlinuz with fallback.
 CACHY_VMLINUZ="./linux-cachy/usr/lib/modules/${CACHY_MODDIR:-$CACHY_VERSION-cachyos}/vmlinuz"
-if [[ ! -f "$CACHY_VMLINUZ" ]]; then
+if [[ ! -f $CACHY_VMLINUZ ]]; then
   CACHY_VMLINUZ="$(find ./linux-cachy -type f \( -name vmlinuz -o -name 'vmlinuz-*' \) | head -n 1)"
 fi
 test -f "$CACHY_VMLINUZ"
@@ -60,7 +60,7 @@ BUILT_VMLINUZ="./linux-cachyos/bzImage"
 # Extract and compare Kconfig definitions.
 "$EXTRACTOR" "$CACHY_VMLINUZ" | sort -u >cachy-config.txt
 
-if [[ "$BUILD_TARGET" == "kernel" ]]; then
+if [[ $BUILD_TARGET == "kernel" ]]; then
   "$EXTRACTOR" "$BUILT_VMLINUZ" | sort -u >cachyos-config.txt
 else
   sort -u linux-cachyos.kconfig >cachyos-config.txt
