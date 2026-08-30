@@ -62,11 +62,7 @@ let
       ]
       ++ lib.optionals (cachyConfig.cpuSched == "cachyos" && version != "6.17-rc1") [
         (
-          if
-            lib.versionAtLeast version "6.18.35"
-            && toString (cachyConfig.versions.linux.tagrel or "") == "1"
-            && cachyConfig.taste == "linux-cachyos-lts"
-          then
+          if lib.versionAtLeast version "6.18.35" && cachyConfig.taste == "linux-cachyos-lts" then
             "${./patches/0001-bore-cachy.patch}"
           else if
             lib.versionAtLeast version "7.2-rc2"
