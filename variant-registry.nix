@@ -9,8 +9,7 @@
 let
   gccVersions = builtins.fromJSON (builtins.readFile ./linux-cachyos/versions.json);
 
-  # Static metadata table for top-level exposure and update dropping.
-  # Keeps attribute keys statically known to prevent overlay infinite recursion.
+  # Static metadata table for top-level exposure and update dropping
   variantMeta = {
     gcc = {
       kernelAlias = "linux_cachyos";
@@ -32,7 +31,7 @@ let
 
   variantNames = builtins.attrNames variantMeta;
 
-  # Expose linuxPackages_cachyos-* and bare linux_cachyos-* kernel derivations.
+  # Expose linuxPackages_cachyos-* and bare linux_cachyos-* kernel derivations
   linuxKernelAttrs = builtins.listToAttrs (
     lib.concatMap (
       name:
@@ -59,13 +58,14 @@ let
         }
         {
           name = alias;
-          value = if kernelDrop then dropUpdate pkg.kernel else pkg.kernel;
+          # Ensure top-level alias does not duplicate updateScript
+          value = dropUpdate pkg.kernel;
         }
       ]
     ) variantNames
   );
 
-  # Expose per-flavor proprietary and open nvidia drivers.
+  # Expose per-flavor proprietary and open nvidia drivers
   nvidiaKernelAttrs = builtins.listToAttrs (
     lib.concatMap (
       name:
@@ -88,13 +88,13 @@ let
     ) variantNames
   );
 
-  # Top-level unqualified nvidia aliases pointing to default GCC flavor.
+  # Top-level unqualified nvidia aliases pointing to default GCC flavor
   topLevelNvidia = {
     nvidia_cachyos = cachyosPackages."cachyos-gcc".nvidiaPackages.cachyos;
     nvidia_cachyos-open = dropUpdate cachyosPackages."cachyos-gcc".nvidiaPackages.cachyos.open;
   };
 
-  # Standalone ZFS userspace utilities matching the mainline GCC flavor.
+  # Standalone ZFS userspace utilities matching mainline GCC flavor
   zfs = {
     zfs_cachyos = dropUpdate (
       prev.zfs_2_4.overrideAttrs (prevAttrs: {

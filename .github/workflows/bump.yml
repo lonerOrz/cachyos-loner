@@ -49,7 +49,7 @@ jobs:
           BASE_SHA=$(git rev-parse HEAD)
 
           # Run centralized update script across kernels and drivers.
-          nix run .#update --impure
+          nix run .#update --impure -- --commit
 
           # Check if commits were created or if working tree changed.
           if [[ "$(git rev-parse HEAD)" != "$BASE_SHA" || -n "$(git status --porcelain)" ]]; then
