@@ -105,7 +105,15 @@ let
   kconfigToNix = inputs.final.callPackage ./lib/kconfig-to-nix.nix {
     configfile = preparedConfigfile;
   };
-  linuxConfigTransformed = import configPath;
+  linuxConfigRaw = import configPath;
+  # GUD driver triggers __read_overflow fortify error under Thin LTO.
+  # TODO: When upstream fixes the GUD driver LTO compatibility (fortify-string check
+  #       in gud_connector.c), remove this conditional and always use linuxConfigRaw.
+  linuxConfigTransformed =
+    if cachyConfig.useLTO != "none" then
+      builtins.removeAttrs linuxConfigRaw [ "CONFIG_DRM_GUD" ]
+    else
+      linuxConfigRaw;
 
   # Phase 3: toolchain makeFlags setup (swapping bintools for LTO builds).
   commonMakeFlagsBintools =
