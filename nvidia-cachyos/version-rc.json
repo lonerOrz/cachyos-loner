@@ -8,18 +8,23 @@
   "kernelPatches": [
     {
       "name": "0001-fix-dsc-correct-RC-parameter-tables-to-match-VESA-DS.patch",
-      "url": "https://raw.githubusercontent.com/CachyOS/kernel-patches/master/7.3/misc/nvidia/0001-fix-dsc-correct-RC-parameter-tables-to-match-VESA-DS.patch",
+      "url": "https://raw.githubusercontent.com/CachyOS/kernel-patches/master/7.4/misc/nvidia/0001-fix-dsc-correct-RC-parameter-tables-to-match-VESA-DS.patch",
       "hash": "sha256-3LziGhagCKc3EBQiDP8RU62Yk7jQlbICQGYnXUyVO+4="
     },
     {
       "name": "0002-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch",
-      "url": "https://raw.githubusercontent.com/CachyOS/kernel-patches/master/7.3/misc/nvidia/0002-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch",
+      "url": "https://raw.githubusercontent.com/CachyOS/kernel-patches/master/7.4/misc/nvidia/0002-fix-dp-add-Bigscreen-Beyond-VR-headset-to-WAR-databa.patch",
       "hash": "sha256-cNwTepvW6VrkueKWrMJNPhOhOHhsb13VSdy806MwWQY="
     },
     {
       "name": "0004-Open-sysfs-config-from-the-userspace-root-on-7.3.patch",
-      "url": "https://raw.githubusercontent.com/CachyOS/kernel-patches/master/7.3/misc/nvidia/0004-Open-sysfs-config-from-the-userspace-root-on-7.3.patch",
+      "url": "https://raw.githubusercontent.com/CachyOS/kernel-patches/master/7.4/misc/nvidia/0004-Open-sysfs-config-from-the-userspace-root-on-7.3.patch",
       "hash": "sha256-pruuHakb6tcDDteKFh3t0tyNONSV74evJGc2Qu8dfKk="
+    },
+    {
+      "name": "0005-Fix-build-on-Linux-7.4.patch",
+      "url": "https://raw.githubusercontent.com/CachyOS/kernel-patches/master/7.4/misc/nvidia/0005-Fix-build-on-Linux-7.4.patch",
+      "hash": "sha256-oiDf0B2ADBYn7hDs5AzW4h44JxIqz8Sx3cPsYywwoZE="
     }
   ]
 }
