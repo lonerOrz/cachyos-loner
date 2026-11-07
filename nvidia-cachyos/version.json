@@ -1,10 +1,10 @@
 {
-  "version": "615.78.08",
-  "hash": "sha256-Pj9t3cLudnoIGFMAr3vjyyhuznZpjS3eNSRZl4LQf/4=",
-  "aarch64Hash": "sha256-UHYBE1AYHoGgMfD9AS/jX+S+N8eCDWUft6qolK9Eejc=",
-  "openHash": "sha256-HBINiOjL0ZJLIAJeNIBYHBnwgUXtNwPPtnFpAI1YwF4=",
-  "settingsHash": "sha256-inDRpG02sdDgHmlqgu/DsgK8OFdOt1fZIYyXdhlGC/c=",
-  "persistencedHash": "sha256-RzeR6Ldct6MUxjnXRyThdh5Y3jjMehTVg85MtwuWNX4=",
+  "version": "620.70.06",
+  "hash": "sha256-KRGOOr0IwHVZvMo9nHYjjQOUkK8DYqLlvPy+cgSv1LE=",
+  "aarch64Hash": "sha256-P6ZaknHg3eKk5YxJZcOIhaAqOkKszcsm/IF0EGB/PgM=",
+  "openHash": "sha256-dV8vzniUl3UJoG2Q3KdoUJigLRuQeTniUfB670gb1Mw=",
+  "settingsHash": "sha256-CFBRmXFJ9eAf5BRlHMBolahz1Pshr9giI7zcZC29oZ8=",
+  "persistencedHash": "sha256-FpGzhArrvR1nEt8lKDzNEnbvHvGP36gL1dINvpDAkpA=",
   "kernelPatches": [
     {
       "name": "0001-fix-dsc-correct-RC-parameter-tables-to-match-VESA-DS.patch",
