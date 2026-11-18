@@ -34,7 +34,7 @@ let
   # Stub derivation for unsupported platforms.
   brokenReplacement = final.hello.overrideAttrs (prevAttrs: {
     meta = prevAttrs.meta // {
-      platform = [ ];
+      platforms = [ ];
       broken = true;
     };
   });
