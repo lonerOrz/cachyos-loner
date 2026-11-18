@@ -17,11 +17,13 @@ matching change.
 ## Commands
 
 ```bash
-nix eval --raw .#inputs.nixpkgs.outPath   # path of the nixpkgs checkout in use
+nix eval --raw --impure --expr '(builtins.getFlake "git+file://'"$PWD"'").inputs.nixpkgs.outPath'  # path of the nixpkgs checkout in use
 nix build .#linux_cachyos-gcc.kernel       # build one kernel
 nix build .#nvidia_cachyos                 # build the NVIDIA driver
 nix eval .#needCacheDrvs.x86_64-linux      # list every kernel/module drv (CI cache set)
 nix run .#update                           # bump versions/hashes + regenerate config snapshots
+./regen-config.sh                          # regenerate config-nix/*.nix without touching versions
+./conformance-test.sh                      # diff our .config against the official CachyOS package
 ```
 
 `nix run .#update` runs `linux-cachyos/update.nix` and `nvidia-cachyos/update.nix`,
