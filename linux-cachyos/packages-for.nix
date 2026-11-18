@@ -41,7 +41,18 @@ let
     else if str == "no" then
       false
     else
-      throw "Unsupported yes/no value";
+      throw "Unsupported yes/no value: ${toString str}";
+
+  # AutoFDO/Propeller profiles must be Nix paths so they land in the store and
+  # stay visible inside the kernel build sandbox.
+  toProfilePath =
+    what: value:
+    if builtins.isPath value then
+      value
+    else if builtins.isString value && builtins.substring 0 11 value == "/nix/store/" then
+      /. + value
+    else
+      throw "cachyos: ${what} must be a Nix path, got: ${toString value}";
 
   nullIfEmpty = str: if str == "" then null else str;
 
@@ -73,9 +84,22 @@ let
     preempt = cachyVars."_preempt";
     hugePages = cachyVars."_hugepage";
     autoFDO = yesOrNo (cachyVars."_autofdo" or "no");
-    autoFDOProfileName = cachyVars."_autofdo_profile_name" or "";
+    autoFDOProfile =
+      if nullIfEmpty (cachyVars."_autofdo_profile_name" or "") == null then
+        null
+      else
+        toProfilePath "autoFDO profile (_autofdo_profile_name)" cachyVars."_autofdo_profile_name";
     propeller = yesOrNo (cachyVars."_propeller" or "no");
-    propellerProfiles = cachyVars."_propeller_profiles" or "no";
+    propellerProfiles =
+      let
+        v = cachyVars."_propeller_profiles" or "no";
+      in
+      if builtins.isString v && v == "yes" then
+        throw "cachyos: _propeller_profiles=\"yes\" needs a profile directory; pass a Nix path instead"
+      else if builtins.isString v && v == "no" then
+        null
+      else
+        toProfilePath "propeller profiles dir (_propeller_profiles)" v;
     withoutDebug = !(yesOrNo (cachyVars."_build_debug" or "no"));
   };
 
@@ -107,6 +131,8 @@ let
   };
   linuxConfigTransformed = import configPath;
 
+  inherit (preparedConfigfile.passthru) preparedMakeFlags;
+
   # Phase 3: toolchain makeFlags setup (swapping bintools for LTO builds).
   commonMakeFlagsBintools =
     import "${inputs.flakes.nixpkgs}/pkgs/os-specific/linux/kernel/common-flags.nix"
@@ -116,7 +142,7 @@ let
           stdenv
           buildPackages
           ;
-        extraMakeFlags = if cachyConfig.useLTO == "none" then extraMakeFlags else [ ];
+        extraMakeFlags = if cachyConfig.useLTO == "none" then preparedMakeFlags ++ extraMakeFlags else [ ];
       };
 
   commonMakeFlags =
@@ -131,6 +157,7 @@ let
         "BINDGEN=${lib.getExe rust-bindgen}"
         "RUST_LIB_SRC=${rustPlatform.rustLibSrc}"
       ]
+      ++ preparedMakeFlags
       ++ extraMakeFlags
     else
       commonMakeFlagsBintools;
