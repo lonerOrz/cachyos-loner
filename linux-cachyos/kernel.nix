@@ -12,6 +12,10 @@
 
 let
   version = cachyConfig.versions.linux.version;
+
+  enforcedConfigFeatures = config // {
+    "CONFIG_MODULES" = "y";
+  };
 in
 (linuxManualConfig {
   inherit
@@ -23,7 +27,8 @@ in
   # Ensure module directory matches EXTRAVERSION appended by CachyOS.
   modDirVersion = lib.versions.pad 3 "${version}${cachyConfig.versions.suffix}";
 
-  inherit config configfile;
+  inherit configfile;
+  config = enforcedConfigFeatures;
   # Disallow IFD since config is passed as a pre-transformed Nix attribute set.
   allowImportFromDerivation = false;
 
@@ -44,6 +49,15 @@ in
   };
 }).overrideAttrs
   (prevAttrs: {
+    # Keep nixpkgs' own makeFlags (reproducible timestamp, DTC_FLAGS, undefine
+    # src) and append ours so the toolchain/RUSTC flags win.
+    makeFlags = prevAttrs.makeFlags ++ commonMakeFlags;
+    # AutoFDO/Propeller profiles are referenced by path in makeFlags; register
+    # them as inputs so Nix keeps them in the sandbox.
+    nativeBuildInputs =
+      prevAttrs.nativeBuildInputs
+      ++ lib.optionals (cachyConfig.autoFDOProfile != null) [ cachyConfig.autoFDOProfile ]
+      ++ lib.optionals (cachyConfig.propellerProfiles != null) [ cachyConfig.propellerProfiles ];
     # Append EXTRAVERSION suffix (-cachyos) directly to top-level Makefile.
     postPatch = prevAttrs.postPatch + configfile.extraVerPatch;
 
