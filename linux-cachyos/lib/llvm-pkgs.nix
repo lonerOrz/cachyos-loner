@@ -6,8 +6,10 @@
 
 let
   projectUtils = import ../../utils.nix { lib = final.lib; };
-  # Pin modern LLVM toolchain for kernel Thin-LTO and Rust for Linux.
-  bumpedFinal = final.extend (finalFinal: _prevFinal: { llvmPackages = finalFinal.llvmPackages_22; });
+  # Rust-for-Linux builds rustc against this same LLVM; take it from rustc.
+  bumpedFinal = final.extend (
+    finalFinal: _prevFinal: { llvmPackages = finalFinal.rustc-unwrapped.llvmPackages; }
+  );
 in
 (final.pkgsLLVM.extend flakes.self.overlays.default).extend (
   _finalLLVM: prevLLVM: {
@@ -28,7 +30,10 @@ in
     inherit (bumpedFinal)
       llvmPackages
       rustc
+      rustc-unwrapped
       rust-bindgen
+      rust-bindgen-unwrapped
+      rustfmt-nightly
       rustPlatform
       ;
   }

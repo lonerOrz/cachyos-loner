@@ -132,6 +132,16 @@ the default and override selectively.
 - LTO kernels use `clangStdenv`, whose `/bin/ld` _is_ `ld.lld` (see nixpkgs
   `bintools.nix`). Do **not** "fix" that — it is intentional.
 - `isLTS` is currently hardcoded `false` in `kernel.nix`; harmless metadata.
+- **LLVM version is coupled to nixpkgs' rustc.** `lib/llvm-pkgs.nix`
+  `bumpedFinal` pins `llvmPackages_23`, and Rust-for-Linux (`CONFIG_RUST=y`
+  in the LTO/znver4 configs) compiles `rustc` against that same
+  `llvmPackages`. `rustc` 1.98.x only builds against LLVM 22 (`rustc-LLVM
+ERROR: '+amx-tf32' is not a recognized feature`), so LLVM 23 requires a
+  nixpkgs whose `rustc` is ≥ 1.99 (which nixpkgs hardcodes to
+  `llvmPackages_23`). Bumping LLVM without bumping nixpkgs breaks the LTO
+  configfile build; the snapshot then keeps stale `CONFIG_RUSTC_LLVM_*`
+  values. Regenerate `config-nix/cachyos-lto.x86_64-linux.nix` after any
+  toolchain change (`nix build .#linux_cachyos-lto.kconfigToNix`).
 
 ## NVIDIA build notes
 
