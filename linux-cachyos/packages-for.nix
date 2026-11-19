@@ -16,7 +16,6 @@
   buildPackages,
   llvmPackages,
   rustc,
-  rust-bindgen,
   rustPlatform,
   ogKernelConfigfile ? linuxPackages.kernel.passthru.configfile,
   updateConfig ? null,
@@ -154,7 +153,6 @@ let
       ]
       ++ [
         "RUSTC=${lib.getExe' rustc "rustc"}"
-        "BINDGEN=${lib.getExe rust-bindgen}"
         "RUST_LIB_SRC=${rustPlatform.rustLibSrc}"
       ]
       ++ preparedMakeFlags
