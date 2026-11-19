@@ -46,6 +46,15 @@ let
         inherit (cachyConfig.versions.linux) hash;
       };
 
+  # Resolve an upstream patch only if the patch queue actually ships it for this
+  # major.minor; upstream lags on new -rc releases, which must not fail the build.
+  upstreamPatch =
+    rel:
+    let
+      p = "${patches-src}/${majorMinor}/${rel}";
+    in
+    lib.optionals (builtins.pathExists p) [ p ];
+
   # Select scheduler patches based on configured cpuSched.
   schedPatches =
     if cachyConfig.cpuSched == "eevdf" then
@@ -53,53 +62,46 @@ let
     else if cachyConfig.cpuSched == "hardened" then
       [ ]
     else if cachyConfig.cpuSched == "bore" then
-      [ "${patches-src}/${majorMinor}/sched/0001-bore-cachy.patch" ]
+      upstreamPatch "sched/0001-bore-cachy.patch"
     else if cachyConfig.cpuSched == "bmq" then
-      [ "${patches-src}/${majorMinor}/sched/0001-prjc-cachy.patch" ]
+      upstreamPatch "sched/0001-prjc-cachy.patch"
     else if (cachyConfig.cpuSched == "cachyos" || cachyConfig.cpuSched == "sched-ext") then
-      lib.optionals (lib.strings.versionOlder majorMinor "6.12") [
-        "${patches-src}/${majorMinor}/sched/0001-sched-ext.patch"
+      lib.optionals (lib.strings.versionOlder majorMinor "6.12") (
+        upstreamPatch "sched/0001-sched-ext.patch"
+      )
+      ++ lib.optionals (cachyConfig.cpuSched == "cachyos") [
+        (
+          if lib.versionAtLeast version "6.18.35" && cachyConfig.taste == "linux-cachyos-lts" then
+            "${./patches/0001-bore-cachy.patch}"
+          else if
+            lib.versionAtLeast version "7.2-rc2"
+            && lib.versionOlder version "7.3"
+            && toString (cachyConfig.versions.linux.tagrel or "") == "3"
+            && cachyConfig.taste == "linux-cachyos-rc"
+          then
+            "${./patches/0001-bore-cachy-rc.patch}"
+          else
+            "${patches-src}/${majorMinor}/sched/0001-bore-cachy.patch"
+        )
       ]
-      ++
-        lib.optionals
-          # Upstream has no sched/bore patch for 7.3-rc1 yet
-          (cachyConfig.cpuSched == "cachyos" && version != "6.17-rc1" && version != "7.3-rc1")
-          [
-            (
-              if lib.versionAtLeast version "6.18.35" && cachyConfig.taste == "linux-cachyos-lts" then
-                "${./patches/0001-bore-cachy.patch}"
-              else if
-                lib.versionAtLeast version "7.2-rc2"
-                && lib.versionOlder version "7.3"
-                && toString (cachyConfig.versions.linux.tagrel or "") == "3"
-                && cachyConfig.taste == "linux-cachyos-rc"
-              then
-                "${./patches/0001-bore-cachy-rc.patch}"
-              else
-                "${patches-src}/${majorMinor}/sched/0001-bore-cachy.patch"
-            )
-          ]
     else if (cachyConfig.cpuSched == "rt-bore") then
-      [
-        "${patches-src}/${majorMinor}/sched/0001-bore-cachy.patch"
-        "${patches-src}/${majorMinor}/misc/0001-rt-i915.patch"
-      ]
+      upstreamPatch "sched/0001-bore-cachy.patch" ++ upstreamPatch "misc/0001-rt-i915.patch"
     else if (cachyConfig.cpuSched == "rt") then
-      [ "${patches-src}/${majorMinor}/misc/0001-rt-i915.patch" ]
+      upstreamPatch "misc/0001-rt-i915.patch"
     else
       throw "Unsupported cachyos _cpu_sched=${toString cachyConfig.cpuSched}";
 
   # Combine base patchset (if not pre-patched in release tarball) with sched and misc patches.
   patches =
-    lib.optionals (!(cachyConfig.versions.linux ? tagrel)) [
-      "${patches-src}/${majorMinor}/all/0001-cachyos-base-all.patch"
-    ]
+    lib.optionals (!(cachyConfig.versions.linux ? tagrel)) (
+      upstreamPatch "all/0001-cachyos-base-all.patch"
+    )
     ++ schedPatches
-    ++ lib.optional (cachyConfig.cpuSched == "hardened") (
+    ++ lib.optionals (cachyConfig.cpuSched == "hardened") (
       if version == "7.0.11" && toString (cachyConfig.versions.linux.tagrel or "") == "1" then
-        ./patches/0001-hardened.patch
+        [ ./patches/0001-hardened.patch ]
       else
-        "${patches-src}/${majorMinor}/misc/0001-hardened.patch"
+        upstreamPatch "misc/0001-hardened.patch"
     );
 
   options = import ./options.nix { inherit lib; };
@@ -107,6 +109,10 @@ let
 
   pkgbuildConfig =
     assert cachyConfig.useLTO == "none" || stdenv.cc.isClang;
+    assert
+      (cachyConfig.autoFDO && cachyConfig.autoFDOProfile != null)
+      || (cachyConfig.propeller && cachyConfig.propellerProfiles != null)
+      -> cachyConfig.useLTO != "none";
     buildPkgbuildConfig cachyConfig;
 
 in
@@ -154,5 +160,16 @@ stdenv.mkDerivation (finalAttrs: {
 
       sed -Ei"" 's/EXTRAVERSION = ?(.*)$/EXTRAVERSION = \1${cachyConfig.versions.suffix}/g' Makefile
     '';
+    # AutoFDO/Propeller: mirrors upstream PKGBUILD — the flag is only passed
+    # when the feature is enabled *and* a profile path was supplied. Kernel
+    # expects a single file for AutoFDO, and <prefix>_cc_profile.txt /
+    # <prefix>_ld_profile.txt for Propeller.
+    preparedMakeFlags =
+      lib.optionals (cachyConfig.autoFDO && cachyConfig.autoFDOProfile != null) [
+        "CLANG_AUTOFDO_PROFILE=${cachyConfig.autoFDOProfile}"
+      ]
+      ++ lib.optionals (cachyConfig.propeller && cachyConfig.propellerProfiles != null) [
+        "CLANG_PROPELLER_PROFILE_PREFIX=${cachyConfig.propellerProfiles}/propeller"
+      ];
   };
 })

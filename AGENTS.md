@@ -17,11 +17,13 @@ matching change.
 ## Commands
 
 ```bash
-nix eval --raw .#inputs.nixpkgs.outPath   # path of the nixpkgs checkout in use
+nix eval --raw --impure --expr '(builtins.getFlake "git+file://'"$PWD"'").inputs.nixpkgs.outPath'  # path of the nixpkgs checkout in use
 nix build .#linux_cachyos-gcc.kernel       # build one kernel
 nix build .#nvidia_cachyos                 # build the NVIDIA driver
 nix eval .#needCacheDrvs.x86_64-linux      # list every kernel/module drv (CI cache set)
 nix run .#update                           # bump versions/hashes + regenerate config snapshots
+./regen-config.sh                          # regenerate config-nix/*.nix without touching versions
+./conformance-test.sh                      # diff our .config against the official CachyOS package
 ```
 
 `nix run .#update` runs `linux-cachyos/update.nix` and `nvidia-cachyos/update.nix`,
@@ -132,6 +134,24 @@ the default and override selectively.
 - LTO kernels use `clangStdenv`, whose `/bin/ld` _is_ `ld.lld` (see nixpkgs
   `bintools.nix`). Do **not** "fix" that — it is intentional.
 - `isLTS` is currently hardcoded `false` in `kernel.nix`; harmless metadata.
+- **LLVM version is coupled to nixpkgs' rustc.** `lib/llvm-pkgs.nix`
+  `bumpedFinal` pins `llvmPackages_23`, and Rust-for-Linux (`CONFIG_RUST=y`
+  in the LTO/znver4 configs) compiles `rustc` against that same
+  `llvmPackages`. `rustc` 1.98.x only builds against LLVM 22 (`rustc-LLVM
+ERROR: '+amx-tf32' is not a recognized feature`), so LLVM 23 requires a
+  nixpkgs whose `rustc` is ≥ 1.99 (which nixpkgs hardcodes to
+  `llvmPackages_23`). Bumping LLVM without bumping nixpkgs breaks the LTO
+  configfile build; the snapshot then keeps stale `CONFIG_RUSTC_LLVM_*`
+  values. Regenerate `config-nix/cachyos-lto.x86_64-linux.nix` after any
+  toolchain change (`nix build .#linux_cachyos-lto.kconfigToNix`).
+- **Never override `BINDGEN=` in `commonMakeFlags`.** nixpkgs' `build.nix`
+  puts `rust-bindgen-unwrapped` on `PATH` under `withRust` and sets no
+  `BINDGEN` variable. Pointing it at the wrapped `rust-bindgen` breaks clang 23
+  builds: the wrapper hardcodes `-nostdlibinc`, the kernel already passes
+  `-nostdinc` (`NOSTDINC_FLAGS`), clang 23 reports the first as unused, and
+  `scripts/Makefile.clang` promotes that to an error
+  (`-Werror=unused-command-line-argument`), failing `rust/bindings`.
+  `RUSTC`/`RUST_LIB_SRC` overrides are harmless and kept for clarity.
 
 ## NVIDIA build notes
 
